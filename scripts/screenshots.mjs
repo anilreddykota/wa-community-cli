@@ -64,8 +64,10 @@ async function run(theme, port) {
 
     // 2. Message many groups
     await clickText('#tabs button', 'Message many groups');
+    await page.waitForFunction(() => document.querySelectorAll('#lsSel option').length > 1);
+    await page.select('#lsSel', 'All section groups');
+    await page.click('#lsLoad');
     await page.type('#bcq', 'Section');
-    await page.click('#bcAll');
     await page.$eval('.composer[data-id="bc"] .ctext', (t) => { t.value = '📢 Mid-term exams start Monday 9:00 AM.\nCarry your ID card — no entry without it.\nTimetable attached.'; });
     await page.$eval('.composer[data-id="bc"] .cinfo', (s) => { s.textContent = 'midterm_timetable.pdf · 0.21 MB'; });
     await shot('broadcast.png');

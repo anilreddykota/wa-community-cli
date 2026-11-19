@@ -18,6 +18,7 @@
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", Roboto, system-ui, sans-serif; }
   header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
   header h1 { font-size: 16px; margin: 0; font-weight: 600; }
@@ -49,7 +50,7 @@
   .grow { flex: 1; min-width: 160px; }
   input[type=text], input[type=search], select, textarea { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
   textarea { min-height: 90px; resize: vertical; }
-  button.b { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; white-space: nowrap; }
+  button.b, label.b { display: inline-block; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; white-space: nowrap; }
   button.b:hover:not(:disabled) { filter: brightness(.97); }
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
@@ -86,7 +87,15 @@
   #qrimg { width: 300px; height: 300px; background: #fff; padding: 18px; border-radius: 8px; display: block; margin: 12px auto; image-rendering: pixelated; }
   @media (max-width: 800px) {
     .layout { grid-template-columns: 1fr; height: auto; }
-    aside { max-height: 45vh; }
+    aside { max-height: 40vh; }
+    main { overflow: visible; padding: 12px 12px 24px; }
+    body { padding-bottom: var(--jobh, 0px); }
+    #log { height: 80px; }
+    header { position: static; padding: 8px 12px; gap: 8px; }
+    header .usage { order: 9; width: 100%; margin-left: 0; }
+    #job .head { gap: 6px; padding: 6px 10px; }
+    #job .head button.b { padding: 5px 9px; }
+    #job .bar { order: 5; flex-basis: 100%; }
   }
 </style>
 </head>
@@ -166,6 +175,26 @@
 
     <!-- BROADCAST -->
     <section data-pane="broadcast" hidden>
+      <div class="card">
+        <h2>Saved lists</h2>
+        <p class="small muted" style="margin-top:0">Name a set of groups &amp; communities once, then reuse it for every notice. Stored only on this computer in <code>saved-lists.csv</code>, which you can also edit in Excel (columns: list, title, kind, chat_id).</p>
+        <div class="row">
+          <select id="lsSel" class="grow"></select>
+          <button class="b primary" id="lsLoad">Select these</button>
+          <button class="b" id="lsRename">Rename</button>
+          <button class="b" id="lsDel">Delete</button>
+        </div>
+        <div id="lsInfo" class="small muted" style="margin-top:6px"></div>
+        <div class="row" style="margin-top:10px">
+          <input type="text" id="lsName" class="grow" placeholder="Name for the groups selected below, e.g. All CSE sections">
+          <button class="b" id="lsSave">Save selection as list</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="b" id="lsExport">Export lists CSV</button>
+          <label class="b" style="cursor:pointer">Import lists CSV<input type="file" id="lsImport" accept=".csv" hidden></label>
+          <label class="small row" style="gap:4px"><input type="checkbox" id="lsReplace"> replace all existing lists</label>
+        </div>
+      </div>
       <div class="card">
         <h2>Send one message to many groups &amp; communities</h2>
         <p class="small muted" style="margin-top:0">Communities post to their Announcements group. Only chats where you're allowed to post are listed.</p>
@@ -322,7 +351,7 @@ for (const host of $$('.composer')) {
 for (const b of $$('#tabs button')) b.onclick = () => {
   $$('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
   $$('section[data-pane]').forEach((s) => (s.hidden = s.dataset.pane !== b.dataset.tab));
-  if (b.dataset.tab === 'broadcast') renderBroadcastList();
+  if (b.dataset.tab === 'broadcast') { renderBroadcastList(); loadLists(); }
   if (b.dataset.tab === 'export') refreshUsage();
 };
 
@@ -475,6 +504,64 @@ $('#bcAll').onclick = () => { for (const id of JSON.parse($('#bcList').dataset.s
 $('#bcNone').onclick = () => { state.bc.clear(); renderBroadcastList(); };
 $('#bcSend').onclick = () => sendBroadcast([...state.bc], composers.bc);
 
+// ---------- saved lists ----------
+state.lists = [];
+async function loadLists() {
+  try { state.lists = await api('/api/lists'); } catch (e) { return toast(e.message); }
+  const sel = $('#lsSel'); const prev = sel.value;
+  if (!state.lists.length) {
+    sel.replaceChildren(el('option', { value: '', textContent: 'No saved lists yet — select groups below and save them' }));
+  } else {
+    sel.replaceChildren(...state.lists.map((l) => el('option', { value: l.name, textContent: `${l.name}  (${l.ids ? l.ids.length : l.count} chats${l.missing && l.missing.length ? `, ${l.missing.length} need attention` : ''})` })));
+    if (prev && state.lists.some((l) => l.name === prev)) sel.value = prev;
+  }
+  for (const id of ['lsLoad', 'lsRename', 'lsDel']) $('#' + id).disabled = !state.lists.length;
+  showListInfo();
+}
+function currentList() { return state.lists.find((l) => l.name === $('#lsSel').value); }
+function showListInfo() {
+  const l = currentList(); const box = $('#lsInfo');
+  if (!l) { box.replaceChildren(); return; }
+  if (!l.ids) { box.textContent = 'Connect WhatsApp to use this list.'; return; }
+  const names = l.ids.map((id) => (state.chats.find((c) => c.id === id) || {}).title).filter(Boolean);
+  const parts = [el('div', { textContent: `${names.length} chat(s): ${names.slice(0, 8).join(', ')}${names.length > 8 ? '…' : ''}` })];
+  for (const m of l.missing || []) parts.push(el('div', { style: 'color:var(--warn)', textContent: `⚠ ${m.title} — ${m.reason}` }));
+  box.replaceChildren(...parts);
+}
+$('#lsSel').onchange = showListInfo;
+$('#lsLoad').onclick = () => {
+  const l = currentList(); if (!l) return;
+  if (!l.ids) return toast('Connect WhatsApp first.');
+  state.bc = new Set(l.ids); $('#bcq').value = ''; renderBroadcastList();
+  toast(`Selected ${l.ids.length} chat(s) from "${l.name}". Write the message below and send.`, 'ok');
+};
+$('#lsSave').onclick = async () => {
+  const name = $('#lsName').value.trim();
+  if (!name) return toast('Type a name for the list first.');
+  if (!state.bc.size) return toast('Select some groups below first.');
+  if (state.lists.some((l) => l.name.toLowerCase() === name.toLowerCase()) && !confirm(`Replace the existing list "${name}"?`)) return;
+  try { await api('/api/lists/save', { name, chatIds: [...state.bc] }); $('#lsName').value = ''; await loadLists(); $('#lsSel').value = name; showListInfo(); }
+  catch (e) { toast(e.message); }
+};
+$('#lsDel').onclick = async () => {
+  const l = currentList(); if (!l || !confirm(`Delete the list "${l.name}"? (The groups themselves are not affected.)`)) return;
+  try { await api('/api/lists/delete', { name: l.name }); await loadLists(); } catch (e) { toast(e.message); }
+};
+$('#lsRename').onclick = async () => {
+  const l = currentList(); if (!l) return;
+  const to = prompt('New name for the list:', l.name); if (!to || to === l.name) return;
+  try { await api('/api/lists/rename', { from: l.name, to }); await loadLists(); $('#lsSel').value = to.trim(); showListInfo(); } catch (e) { toast(e.message); }
+};
+$('#lsExport').onclick = async () => { try { const r = await api('/api/lists/export'); download(r.name, r.csv); } catch (e) { toast(e.message); } };
+$('#lsImport').onchange = async () => {
+  const f = $('#lsImport').files[0]; if (!f) return;
+  const mode = $('#lsReplace').checked ? 'replace' : 'merge';
+  if (mode === 'replace' && !confirm('Replace ALL saved lists with the ones in this file?')) { $('#lsImport').value = ''; return; }
+  try { const r = await api('/api/lists/import', { csv: await f.text(), mode }); toast(`Imported ${r.imported} list(s).`, 'ok'); await loadLists(); }
+  catch (e) { toast(e.message); }
+  $('#lsImport').value = '';
+};
+
 async function sendBroadcast(ids, comp) {
   const text = comp.text.value.trim();
   if (!ids.length) return toast('Pick at least one group or community.');
@@ -575,6 +662,7 @@ function connectEvents() {
     setStatus('error', null, 'Lost connection to the local server. Is it still running?');
   };
 }
+if (window.innerWidth < 800) $('#job').classList.add('collapsed'); // small screens: log hidden until opened
 connectEvents(); refreshUsage(); sizeJob();
 </script>
 </body>

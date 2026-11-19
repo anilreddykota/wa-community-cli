@@ -12,6 +12,7 @@ import {
   HERE, OUT_DIR, SESSION_DIR, sleep, config, usageSummary, stamp, safeName, numbersFromText, parseCsv, toCsv, writeCsv,
   fillTemplate, mediaFromBase64, planKeepList, planFromList, planAdd, phoneColumns, planDms,
   openWhatsApp, waCaller, PacedJob,
+  readLists, saveList, deleteList, renameList, exportListsCsv, importListsCsv, resolveList,
 } from './lib/engine.mjs';
 
 const PORT = Number(process.env.PORT || 3030);
@@ -94,6 +95,11 @@ async function chatById(wa, id) {
 }
 const sendTarget = (c) => ({ chatId: c.kind === 'community' ? c.announceId : c.id });
 const slim = (list, n = 5000) => list.slice(0, n).map((m) => ({ phone: m.phone, name: m.name || '', role: m.role || '' }));
+
+// Run a list operation; its errors are user mistakes, so report them as 400.
+function userOp(fn) {
+  try { return fn(); } catch (e) { throw httpError(400, String(e && e.message ? e.message : e)); }
+}
 
 function checkConfirm(confirmValue, count) {
   if (String(confirmValue).trim() !== String(count)) throw httpError(400, `Confirmation must be the exact number: ${count}.`);
@@ -227,6 +233,39 @@ async function api(req, url, body) {
         items: targets, action: (c) => w('sendMessage', sendTarget(c), text, media), describe: (c) => c.title,
         logFile: outFile('group_messages_log'),
       });
+    }
+
+    // ----- saved group lists (saved-lists.csv) -----
+    case 'GET /api/lists': {
+      const lists = readLists();
+      let chats = null;
+      if (session.state === 'ready' && session.wa) { try { chats = await session.wa('listChats'); } catch {} }
+      return lists.map((l) => {
+        if (!chats) return { name: l.name, count: l.items.length, items: l.items };
+        const r = resolveList(l, chats);
+        return { name: l.name, count: l.items.length, ids: r.targets.map((c) => c.id), missing: r.missing };
+      });
+    }
+    case 'POST /api/lists/save': {
+      const chats = await wa()('listChats');
+      const items = (Array.isArray(body.chatIds) ? body.chatIds : []).map((id) => chats.find((c) => c.id === id)).filter(Boolean);
+      const r = userOp(() => saveList(body.name, items));
+      pushLog(`Saved list "${r.name}" (${r.count} chats).`, 'ok');
+      return r;
+    }
+    case 'POST /api/lists/delete': {
+      const r = userOp(() => deleteList(body.name));
+      pushLog(`Deleted list "${body.name}".`, 'info');
+      return r;
+    }
+    case 'POST /api/lists/rename':
+      return userOp(() => renameList(body.from, body.to));
+    case 'GET /api/lists/export':
+      return { name: 'saved-lists.csv', csv: exportListsCsv() };
+    case 'POST /api/lists/import': {
+      const r = userOp(() => importListsCsv(body.csv || '', body.mode === 'replace' ? 'replace' : 'merge'));
+      pushLog(`Imported ${r.imported} list(s); ${r.total} saved in total.`, 'ok');
+      return r;
     }
 
     // ----- personal messages from CSV -----

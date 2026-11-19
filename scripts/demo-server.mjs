@@ -39,6 +39,12 @@ const members = [
   ...Array.from({ length: 1997 }, (_, i) => person(i + 3)),
 ];
 
+let demoLists = [
+  { name: 'All section groups', ids: ['g1', 'g2', 'g3', 'g4'] },
+  { name: 'Every Announcements', ids: ['c1', 'c2', 'g8'] },
+  { name: 'Clubs', ids: ['g5', 'g10', 'g7'], missing: [{ title: 'Drama Club', reason: 'not found (left the group, renamed, or typo)' }] },
+];
+
 // ---------- events ----------
 const clients = new Set();
 const recent = [];
@@ -101,6 +107,13 @@ function api(method, p, q, body) {
     return { headers, gate: (chats.find((c) => c.id === body.gateId) || {}).title, rows: rows.length, count: rows.length - 2, notMember: 1, dup: 1, bad: 0,
       previews: rows.slice(0, 3).map((r) => ({ phone: r[body.phoneCol], text: fill(body.template, r) })), unfilled: [] };
   }
+  // saved lists (kept in memory for the demo)
+  if (p === '/api/lists') return demoLists.map((l) => ({ name: l.name, count: l.ids.length + (l.missing || []).length, ids: l.ids, missing: l.missing || [] }));
+  if (p === '/api/lists/save') { demoLists = demoLists.filter((l) => l.name.toLowerCase() !== String(body.name).toLowerCase()); demoLists.push({ name: String(body.name).trim(), ids: body.chatIds }); log(`Saved list "${body.name}" (${body.chatIds.length} chats).`, 'ok'); return { name: body.name, count: body.chatIds.length }; }
+  if (p === '/api/lists/delete') { demoLists = demoLists.filter((l) => l.name !== body.name); return { deleted: body.name }; }
+  if (p === '/api/lists/rename') { const l = demoLists.find((x) => x.name === body.from); if (l) l.name = body.to; return { name: body.to }; }
+  if (p === '/api/lists/export') return { name: 'saved-lists.csv', csv: 'list,title,kind,chat_id\n' + demoLists.flatMap((l) => l.ids.map((id) => { const c = chats.find((x) => x.id === id); return `${l.name},${c.title},${c.kind},${id}`; })).join('\n') };
+  if (p === '/api/lists/import') return { imported: 0, total: demoLists.length };
   if (p === '/api/job/pause') { if (job) job.paused = true; send({ type: 'job', job }); return job; }
   if (p === '/api/job/resume') { if (job) job.paused = false; send({ type: 'job', job }); return job; }
   if (p === '/api/job/stop') { if (job) job.state = 'finished'; send({ type: 'job', job }); return job; }

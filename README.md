@@ -21,6 +21,7 @@ Running a college batch, a club or an alumni network on WhatsApp means hours of 
 
 - 🧹 **Keep-list clean-up.** Upload your student list and it removes everyone else. Admins are never touched.
 - 📣 **One post, many groups.** Send the same notice, photo or PDF to every section group at once.
+- 🗂️ **Saved group lists.** Save sets like "All CSE sections" or "Every Announcements" once, then reuse them. They're kept in a local CSV you can edit in Excel.
 - ✉️ **Personal messages from a spreadsheet.** For example `Dear parent of {Student Name}, the pending fee is {Fee Due}`.
 - 👮 **Bulk admin changes.** Make admins, remove admins, add or remove people from a list.
 - 📊 **Export everything.** Every member's number, and every group you're in, as CSV.
@@ -76,7 +77,7 @@ That's it. Next time, just double-click `start-ui.bat` again. No QR code needed.
 |---|---|
 | **Left side** | Search all your groups and communities. Filter to communities, groups, or ones where you're admin. Click one to manage it. |
 | **Manage** | Member list and search. **Export members CSV**. **Bulk member action**: paste numbers or load a CSV, click **Preview** to see exactly who is affected, then confirm. **Post a message** to that group, or to a community's Announcements. |
-| **Message many groups** | Tick the groups, write a message, optionally attach a photo, video or document, and send. |
+| **Message many groups** | Pick a **saved list**, or tick groups yourself, then write a message, optionally attach a photo, video or document, and send. Communities post to their Announcements group. Click **Save selection as list** to reuse the same set next time. |
 | **Personal messages** | Load a CSV with a header row and pick the phone column. Pick the community or group the people must belong to. Write the message, using buttons like `{Student ID}` to fill in each row's data. Preview, then send. |
 | **Export & limits** | Export a list of all your groups. See today's usage. |
 | **Bottom bar** | Live progress, **Pause**, **Stop**, and **Download log** for the running job. |
@@ -124,6 +125,23 @@ Before anything is removed, changed or sent, the tool asks you to **type the exa
 </table>
 
 <sub>Screenshots are from demo mode, with made-up names and +1 555-01xx numbers (a range reserved for fiction). Regenerate them with `npm run screenshots`.</sub>
+
+### Saved group lists
+
+A saved list is a named set of groups and communities, for example "All CSE sections" or "Every class Announcements". Send to it again any time, without ticking groups one by one.
+
+- **Web page:** on **Message many groups**, tick the groups, type a name and click **Save selection as list**. Next time, pick it and click **Select these**. You can also **Rename**, **Delete**, **Export** or **Import** lists there.
+- **Terminal:** when sending to many groups, choose a saved list or pick groups and give them a name. **Saved group lists** in the main menu shows, renames and deletes lists.
+- **Storage:** lists live in `saved-lists.csv` in the tool's folder, only on your computer. You can open and edit it in Excel:
+
+```csv
+list,title,kind,chat_id
+All CSE sections,CSE · Section A,group,120363…@g.us
+All CSE sections,CSE · Section B,group,
+Every Announcements,Class of 2027 · Students,community,
+```
+
+`chat_id` is filled in automatically when you save from the tool. For rows you type yourself, `list` and `title` are enough: the tool finds the group by its exact name. If a name isn't found or appears twice, the tool skips that row and tells you, so nothing goes to the wrong group.
 
 ### How it works
 

@@ -8,6 +8,7 @@ import {
   OUT_DIR, config, PACE_LABEL, usedToday, usageSummary, stamp, safeName, digits, numbersFromText, parseCsv,
   writeCsv, fillTemplate, mediaFromFile, planKeepList, planFromList, planAdd, phoneColumns, planDms,
   openWhatsApp, waCaller, PacedJob,
+  LISTS_FILE, readLists, saveList, deleteList, renameList, resolveList,
 } from './lib/engine.mjs';
 
 const col = {
@@ -180,19 +181,53 @@ async function memberMenu(wa, chat) {
   }
 }
 
-async function broadcastToGroups(wa) {
-  const chats = (await wa('listChats')).filter((c) => c.canSend);
+function showResolved(r) {
+  console.log(`  ${col.green(r.targets.length)} chat(s): ${r.targets.slice(0, 8).map((c) => c.title).join(', ')}${r.targets.length > 8 ? '…' : ''}`);
+  for (const m of r.missing) console.log(col.yellow(`  ⚠ ${m.title} — ${m.reason}`));
+}
+
+async function pickGroupsNow(allChats) {
+  const chats = allChats.filter((c) => c.canSend);
   console.log(col.dim(`  ${chats.length} groups/communities where you can post. Communities post to their Announcements.`));
   const term = (await input({ message: 'Filter by name (leave empty to list all):' })).toLowerCase();
   const pool = chats.filter((c) => !term || c.title.toLowerCase().includes(term) || c.parentTitle.toLowerCase().includes(term))
     .sort((a, b) => a.title.localeCompare(b.title));
-  if (!pool.length) return console.log('Nothing matches.');
+  if (!pool.length) { console.log('Nothing matches.'); return []; }
   const picked = await checkbox({
     message: 'Pick where to send (space = select, a = all, enter = done):',
     pageSize: 20,
     choices: pool.map((c) => ({ name: `${kindLabel(c.kind)} ${c.title}${c.parentTitle ? col.dim('  (in ' + c.parentTitle + ')') : ''}`, value: c })),
     validate: (v) => (v.length ? true : 'Pick at least one'),
   });
+  const name = (await input({ message: 'Save these as a list for next time? Type a name (or leave empty to skip):' })).trim();
+  if (name) {
+    try { saveList(name, picked); console.log(col.green(`  Saved list "${name}" (${picked.length} chats) in ${LISTS_FILE}`)); }
+    catch (e) { console.log(col.red('  ' + e.message)); }
+  }
+  return picked;
+}
+
+async function broadcastToGroups(wa) {
+  const allChats = await wa('listChats');
+  const lists = readLists();
+  let picked;
+  if (lists.length) {
+    const src = await select({
+      message: 'Send to:',
+      choices: [
+        ...lists.map((l) => ({ name: `Saved list: ${l.name}  ${col.dim('(' + l.items.length + ' chats)')}`, value: l })),
+        { name: 'Pick groups now', value: null },
+      ],
+    });
+    if (src) {
+      const r = resolveList(src, allChats);
+      showResolved(r);
+      if (!r.targets.length) return console.log(col.red('  Nothing in this list can be sent to right now.'));
+      picked = r.targets;
+    }
+  }
+  if (!picked) picked = await pickGroupsNow(allChats);
+  if (!picked.length) return;
   const { text, media } = await composeMessage();
   preview(`${picked.length} chats`, text, media);
   if (!(await confirmCount(picked.length, `sending this message to ${picked.length} groups/communities`))) return console.log('Cancelled.');
@@ -222,6 +257,25 @@ async function personalMessages(wa) {
   await runJob({ kind: 'dms', label: 'Personal messages', items: plan.recipients, action: (r) => wa('sendMessage', { phone: r.phone }, fillTemplate(text, r.record), media), describe: (r) => r.phone, logFile: outFile('personal_messages_log') });
 }
 
+async function manageLists(wa) {
+  for (;;) {
+    const lists = readLists();
+    console.log(col.dim(`  Saved in ${LISTS_FILE} — you can also edit it in Excel (columns: list, title, kind, chat_id).`));
+    if (!lists.length) { console.log('  No saved lists yet. Make one from "Send one message to many groups".'); return; }
+    const l = await select({
+      message: 'Saved group lists:',
+      choices: [...lists.map((x) => ({ name: `${x.name}  ${col.dim('(' + x.items.length + ' chats)')}`, value: x })), { name: '← Back', value: null }],
+    });
+    if (!l) return;
+    showResolved(resolveList(l, await wa('listChats')));
+    const act = await select({ message: `"${l.name}":`, choices: [{ name: 'Rename', value: 'rename' }, { name: 'Delete', value: 'delete' }, { name: '← Back', value: 'back' }] });
+    try {
+      if (act === 'rename') { const to = await input({ message: 'New name:', default: l.name }); renameList(l.name, to); console.log(col.green('  Renamed.')); }
+      if (act === 'delete' && (await confirm({ message: `Delete "${l.name}"? (Groups themselves are not affected.)`, default: false }))) { deleteList(l.name); console.log(col.green('  Deleted.')); }
+    } catch (e) { console.log(col.red('  ' + e.message)); }
+  }
+}
+
 async function exportAllChats(wa) {
   let chats = await wa('listChats');
   const full = await confirm({ message: 'Load full member counts for communities too? (slower, read-only)', default: false });
@@ -246,7 +300,8 @@ async function main() {
         message: 'Main menu',
         choices: [
           { name: 'Manage a community or group (members, admins, post)', value: 'manage' },
-          { name: 'Send one message to many groups/communities', value: 'broadcast' },
+          { name: 'Send one message to many groups/communities (or a saved list)', value: 'broadcast' },
+          { name: 'Saved group lists', value: 'lists' },
           { name: 'Send personal messages from a CSV', value: 'dms' },
           { name: 'Export all my groups & communities (CSV)', value: 'exportAll' },
           { name: 'Show today\'s usage and limits', value: 'usage' },
@@ -257,6 +312,7 @@ async function main() {
         if (action === 'quit') break;
         if (action === 'manage') await memberMenu(wa, await pickChat(await wa('listChats')));
         if (action === 'broadcast') await broadcastToGroups(wa);
+        if (action === 'lists') await manageLists(wa);
         if (action === 'dms') await personalMessages(wa);
         if (action === 'exportAll') await exportAllChats(wa);
         if (action === 'usage') for (const u of Object.values(usageSummary())) console.log(`  ${u.label.padEnd(18)} ${u.used}/${u.limit} today`);
