@@ -76,7 +76,7 @@ That's it. Next time, just double-click `start-ui.bat` again. No QR code needed.
 | Where | What you can do |
 |---|---|
 | **Left side** | Search all your groups and communities. Filter to communities, groups, or ones where you're admin. Click one to manage it. |
-| **Manage** | Member list and search. **Export members CSV**. **Bulk member action**: paste numbers or load a CSV, click **Preview** to see exactly who is affected, then confirm. **Post a message** to that group, or to a community's Announcements. |
+| **Manage** | Member list and search. **Export members CSV**. **Bulk member action**: remove everyone not on a keep list, remove listed numbers, or make or remove admins. Paste numbers or load a CSV, click **Preview** to see exactly who is affected, then confirm. **Add members**: paste or load numbers, preview who's new, confirm. **Post a message** to that group, or to a community's Announcements. |
 | **Message many groups** | Pick a **saved list**, or tick groups yourself, then write a message, optionally attach a photo, video or document, and send. Communities post to their Announcements group. Click **Save selection as list** to reuse the same set next time. |
 | **Personal messages** | Load a CSV with a header row and pick the phone column. Pick the community or group the people must belong to. Write the message, using buttons like `{Student ID}` to fill in each row's data. Preview, then send. |
 | **Export & limits** | Export a list of all your groups. See today's usage. |
@@ -230,9 +230,12 @@ Pull requests are welcome, especially fixes for WhatsApp Web updates.
 | Make and remove admin in a normal group | ✅ |
 | Sending text, photo and PDF | ✅ |
 | Make or remove admins in a **community** | ⚠️ not run live yet; try one number first |
+| Adding people to a **community** (through its Announcements group) | ⚠️ not run live yet; try one number first |
 | Invite links in the export | ⚠️ only for groups whose "Invite via link" screen you've opened once |
 
 ## Troubleshooting
+
+When something goes wrong, the page shows a **red message at the top right** saying what happened and what to do. It stays until you close it. Warnings, such as "2 people couldn't be added because of their privacy settings", show in amber. Every message is also kept in the log at the bottom.
 
 - **The QR code won't scan:** scan the code in the separate WhatsApp Chrome window instead, or click **Connect WhatsApp** to get a fresh one.
 - **"Chrome not found":** install Google Chrome, or set the `CHROME_PATH` environment variable to your `chrome.exe`.

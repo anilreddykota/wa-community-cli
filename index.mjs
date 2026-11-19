@@ -120,7 +120,7 @@ async function memberMenu(wa, chat) {
         { name: 'Make admins: numbers in a file', value: 'promote' },
         { name: 'Remove admin rights: numbers in a file', value: 'demote' },
       );
-      if (chat.kind === 'group') choices.push({ name: 'Add numbers from a file', value: 'add' });
+      choices.push({ name: chat.kind === 'community' ? 'Add numbers from a file (via its Announcements group — not tested live yet)' : 'Add numbers from a file', value: 'add' });
     }
     if (chat.canSend) choices.push({ name: chat.kind === 'community' ? 'Send a message to its Announcements' : 'Send a message to this group', value: 'send' });
     choices.push({ name: '← Back', value: 'back' });
@@ -163,7 +163,8 @@ async function memberMenu(wa, chat) {
     }
 
     if (action === 'add') {
-      console.log(col.yellow('  Only add people who know you. People whose privacy settings block group adds will show as not-added.'));
+      console.log(col.yellow('  Only add people who know you. People whose privacy settings block group adds will show as not-added — send them your invite link instead.'));
+      if (chat.kind === 'community') console.log(col.yellow('  Communities: people are added through the Announcements group. Not tested live yet — try one number first.'));
       const plan = planAdd(members, readNumbers(await askFile('File with numbers to add:')));
       console.log(`  Numbers in file: ${plan.wanted}   Already members: ${plan.already}   To add: ${col.green(plan.toAdd.length)}`);
       if (plan.toAdd.length && (await confirmCount(plan.toAdd.length, `adding ${plan.toAdd.length} people to "${chat.title}"`))) {

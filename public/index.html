@@ -80,6 +80,17 @@
   #log { height: 150px; overflow: auto; font: 12px/1.5 Consolas, ui-monospace, monospace; padding: 6px 16px 10px; border-top: 1px solid var(--line); }
   #log .error { color: var(--danger); } #log .warn { color: var(--warn); } #log .ok { color: var(--ok); }
   #job.collapsed #log { display: none; }
+  #toasts { position: fixed; top: 64px; right: 16px; z-index: 30; display: flex; flex-direction: column; gap: 8px; width: min(420px, calc(100vw - 32px)); pointer-events: none; }
+  .toast { pointer-events: auto; display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--muted); box-shadow: 0 6px 24px rgba(0,0,0,.18); animation: tin .18s ease-out; }
+  .toast.error { border-left-color: var(--danger); }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.warn { border-left-color: var(--warn); }
+  .toast .ti { font-weight: 700; margin-bottom: 2px; }
+  .toast.error .ti { color: var(--danger); } .toast.ok .ti { color: var(--ok); } .toast.warn .ti { color: var(--warn); }
+  .toast .tb { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .toast button { background: none; border: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
+  @keyframes tin { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .inline-error { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: 13px; white-space: pre-wrap; }
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
   .overlay.show { display: flex; }
   .modal { background: var(--panel); border-radius: 12px; padding: 20px; max-width: 460px; width: 100%; }
@@ -151,7 +162,6 @@
               <option value="removeList">Remove the numbers on this list</option>
               <option value="promote">Make the numbers on this list admins</option>
               <option value="demote">Remove admin rights from the numbers on this list</option>
-              <option value="add">Add the numbers on this list (groups only)</option>
             </select>
           </div>
           <h3>Numbers</h3>
@@ -163,6 +173,19 @@
             <button class="b" id="bPreview">Preview</button>
           </div>
           <div id="bResult"></div>
+        </div>
+
+        <div class="card" id="addCard">
+          <h2>Add members</h2>
+          <div id="addNote" class="small muted" style="margin-bottom:8px"></div>
+          <textarea id="aText" placeholder="Numbers to add — paste them one per line, or load a CSV/text file. 10-digit numbers get the country code added."></textarea>
+          <div class="row" style="margin-top:6px">
+            <input type="file" id="aFile" accept=".csv,.txt">
+            <span class="small muted" id="aFileInfo"></span>
+            <span class="grow"></span>
+            <button class="b" id="aPreview">Preview</button>
+          </div>
+          <div id="aResult"></div>
         </div>
 
         <div class="card" id="postCard">
@@ -260,6 +283,8 @@
   <div id="log"></div>
 </div>
 
+<div id="toasts" aria-live="polite"></div>
+
 <div class="overlay" id="qrOverlay">
   <div class="modal" style="text-align:center">
     <h2>Link WhatsApp</h2>
@@ -302,12 +327,34 @@ const state = { status: 'starting', chats: [], sel: null, members: [], job: null
 async function api(path, body) {
   const opt = { headers: { 'X-Token': TOKEN } };
   if (body !== undefined) { opt.method = 'POST'; opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
-  const r = await fetch(path, opt);
+  let r;
+  try { r = await fetch(path, opt); }
+  catch { throw new Error('Can\'t reach WhatsApp Manager. Is its black window (start-ui.bat) still open? Start it again, then reload this page.'); }
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || r.statusText);
+  if (!r.ok) {
+    if (r.status === 401) throw new Error('This page is out of date (the app was restarted). Reload the page.');
+    throw new Error(j.error || `Something went wrong (${r.status} ${r.statusText}).`);
+  }
   return j;
 }
-function toast(msg, level = 'error') { addLog({ text: msg, level, time: new Date().toISOString() }); }
+
+// Pop-up messages: errors stay until closed, warnings 10 s, success 5 s. Everything also goes to the log.
+const TOAST_TITLE = { error: 'Error', warn: 'Heads up', ok: 'Done', info: 'Info' };
+function notify(msg, level = 'error', { log = true } = {}) {
+  if (log) addLog({ text: msg, level, time: new Date().toISOString() });
+  const box = $('#toasts');
+  if ([...box.children].some((t) => t.dataset.msg === msg)) return; // don't stack duplicates
+  const close = el('button', { textContent: '×', title: 'Close' });
+  const t = el('div', { className: 'toast ' + level, role: level === 'error' ? 'alert' : 'status' },
+    el('div', { className: 'tb' }, el('div', { className: 'ti', textContent: TOAST_TITLE[level] || 'Info' }), msg), close);
+  t.dataset.msg = msg;
+  close.onclick = () => t.remove();
+  box.prepend(t);
+  while (box.childElementCount > 5) box.lastChild.remove();
+  if (level !== 'error') setTimeout(() => t.remove(), level === 'warn' ? 10000 : 5000);
+}
+function toast(msg, level = 'error') { notify(msg, level); }
+function inlineError(box, msg) { box.replaceChildren(el('div', { className: 'inline-error', textContent: msg })); }
 function download(name, text) {
   const a = el('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })), download: name });
   document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
@@ -425,8 +472,16 @@ async function selectChat(c) {
   $('#postCard').hidden = !c.canSend;
   $('#postTitle').textContent = c.kind === 'community' ? 'Post to Announcements' : 'Post a message';
   const isAdmin = c.myRole !== 'member';
-  for (const o of $$('#bAction option')) o.disabled = (!isAdmin && o.value !== 'keep') || (o.value === 'add' && c.kind !== 'group');
+  for (const o of $$('#bAction option')) o.disabled = !isAdmin && o.value !== 'keep';
   if ($('#bAction').selectedOptions[0].disabled) $('#bAction').value = 'keep';
+  // Add members card
+  $('#aResult').replaceChildren();
+  for (const id of ['aText', 'aFile', 'aPreview']) $('#' + id).disabled = !isAdmin;
+  $('#addNote').replaceChildren(!isAdmin
+    ? el('span', { className: 'inline-error', style: 'display:block;margin:0', textContent: `Only admins can add members. You are a member of this ${KIND[c.kind].toLowerCase()}.` })
+    : c.kind === 'community'
+      ? el('span', { textContent: 'People are added to the community through its Announcements group. ⚠ Not tested live for communities yet: try one number first. People whose privacy settings block group adds show as "not-added"; send them your invite link instead.' })
+      : el('span', { textContent: 'Only add people who know you. People whose privacy settings block group adds show as "not-added"; send them your invite link instead.' }));
   try {
     const r = await api('/api/members?id=' + encodeURIComponent(c.id));
     if (state.sel !== c) return;
@@ -479,9 +534,32 @@ $('#bPreview').onclick = async () => {
         el('tbody', {}, ...r.targets.slice(0, 200).map((m) => el('tr', {}, el('td', { textContent: m.phone }), el('td', { textContent: m.name }))))));
     box.replaceChildren(stats, actions, r.targets.length ? table : '');
     if (action === 'promote' || action === 'demote') box.prepend(el('div', { className: 'warnbox', textContent: 'Admin changes in communities have not been tested live yet — try one number first.' }));
-  } catch (e) { box.replaceChildren(); toast(e.message); }
+  } catch (e) { inlineError(box, e.message); toast(e.message); }
 };
 function btn(label, onclick, cls = '') { const b = el('button', { className: 'b ' + cls, textContent: label }); b.onclick = onclick; return b; }
+
+// ---------- add members ----------
+$('#aFile').onchange = async () => { const f = $('#aFile').files[0]; if (!f) return; $('#aText').value = await f.text(); $('#aFileInfo').textContent = f.name; };
+$('#aPreview').onclick = async () => {
+  const text = $('#aText').value, box = $('#aResult');
+  if (!text.trim()) { inlineError(box, 'Paste the numbers to add, or load a file, first.'); return; }
+  box.replaceChildren(el('p', { className: 'muted', textContent: 'Checking…' }));
+  try {
+    const r = await api('/api/members/plan', { chatId: state.sel.id, action: 'add', text });
+    const stats = el('div', { className: 'stats' }, stat('Numbers in list', r.already + r.count), stat('Already members', r.already), stat('Will be added', r.count, 'green'));
+    if (!r.count) { box.replaceChildren(stats, el('p', { className: 'muted', textContent: 'Everyone on the list is already a member. Nothing to add.' })); return; }
+    const go = btn(`Add ${r.count} ${r.count === 1 ? 'person' : 'people'}`, async () => {
+      const v = await confirmCount('Add members', `Add ${r.count} ${r.count === 1 ? 'person' : 'people'} to "${state.sel.title}"? They will see that you added them.`, r.count);
+      if (v === null) return;
+      try { await api('/api/members/run', { chatId: state.sel.id, action: 'add', text, confirm: v }); box.replaceChildren(el('p', { className: 'muted', textContent: 'Started — follow progress at the bottom. Anyone who can\'t be added is listed at the end.' })); }
+      catch (e) { inlineError(box, e.message); toast(e.message); }
+    }, 'primary');
+    const table = el('div', { className: 'tablewrap', style: 'max-height:180px;margin-top:8px' },
+      el('table', {}, el('thead', {}, el('tr', {}, el('th', { textContent: 'Will be added' }))),
+        el('tbody', {}, ...r.targets.slice(0, 200).map((m) => el('tr', {}, el('td', { textContent: m.phone }))))));
+    box.replaceChildren(stats, el('div', { className: 'row' }, btn(`Download list (${r.count})`, () => download('to_add.csv', csv(r.targets, ['phone']))), el('span', { className: 'grow' }), go), table);
+  } catch (e) { inlineError(box, e.message); toast(e.message); }
+};
 
 // ---------- post to selected chat ----------
 $('#postSend').onclick = () => sendBroadcast([state.sel.id], composers.post);
@@ -609,7 +687,7 @@ $('#dPreview').onclick = async () => {
       catch (e) { toast(e.message); }
     }, 'primary') : '';
     box.replaceChildren(stats, warn, ...prev, el('div', { className: 'row' }, el('span', { className: 'grow' }), go));
-  } catch (e) { box.replaceChildren(); toast(e.message); }
+  } catch (e) { inlineError(box, e.message); toast(e.message); }
 };
 
 // ---------- export ----------
@@ -651,15 +729,22 @@ window.onresize = sizeJob;
 // ---------- live events ----------
 function connectEvents() {
   const es = new EventSource('/api/events?token=' + TOKEN);
+  let live = false; // the first burst replays old log lines; only pop up new ones
+  setTimeout(() => { live = true; }, 1500);
   es.onmessage = (m) => {
     const evt = JSON.parse(m.data);
     if (evt.type === 'status') setStatus(evt.state, evt.qr, evt.error);
-    if (evt.type === 'log') addLog(evt);
+    if (evt.type === 'log') {
+      addLog(evt);
+      // Job problems and warnings pop up too, so they can't be missed (not on page load replay).
+      if (live && (evt.level === 'error' || evt.level === 'warn')) notify(evt.text, evt.level, { log: false });
+    }
     if (evt.type === 'job') renderJob(evt.job);
   };
   es.onerror = () => {
     if (!document.getElementById('status')) { es.close(); return; } // app was quit
     setStatus('error', null, 'Lost connection to the local server. Is it still running?');
+    notify('Lost connection to WhatsApp Manager. If you closed its black window, start it again (start-ui.bat) and reload this page.', 'error', { log: false });
   };
 }
 if (window.innerWidth < 800) $('#job').classList.add('collapsed'); // small screens: log hidden until opened

@@ -52,7 +52,7 @@ const send = (evt) => { const d = `data: ${JSON.stringify(evt)}\n\n`; for (const
 const log = (text, level = 'info') => { const e = { type: 'log', text, level, time: new Date().toISOString() }; recent.push(e); if (recent.length > 200) recent.shift(); send(e); };
 let job = null;
 
-function fakeJob(label, targets, verb) {
+function fakeJob(label, targets, verb, resultFor = () => verb) {
   job = { label, kind: 'members', state: 'running', paused: false, done: 0, processed: 0, total: targets.length, logFile: 'demo_log.csv', startedAt: new Date().toISOString() };
   log(`${label}: ${targets.length} items, 5–9s apart, 90s break every 25. About ${Math.ceil(targets.length * 9 / 60)} min.`);
   send({ type: 'job', job });
@@ -61,10 +61,17 @@ function fakeJob(label, targets, verb) {
     if (!job || job.state !== 'running') return;
     if (job.paused) return setTimeout(step, 500);
     const t = targets[i++];
-    job.processed++; job.done++;
-    log(`✓ ${i}/${targets.length}  ${t.phone}  ${t.name || ''} — ${verb}`, 'ok');
+    const result = resultFor(t, i);
+    const ok = result === verb;
+    job.processed++; if (ok) job.done++;
+    log(`${ok ? '✓' : '•'} ${i}/${targets.length}  ${t.phone}  ${t.name || ''} — ${result}`, ok ? 'ok' : 'info');
     send({ type: 'job', job });
-    if (i >= targets.length) { job.state = 'finished'; log(`${label}: ${job.done} done, 0 not processed.`, 'ok'); send({ type: 'job', job }); return; }
+    if (i >= targets.length) {
+      job.state = 'finished';
+      log(`${label}: ${job.done} done, 0 not processed.`, 'ok');
+      if (job.done < targets.length) log(`Not changed: ${targets.length - job.done} not-added. Details are in the log.`, 'warn');
+      send({ type: 'job', job }); return;
+    }
     setTimeout(step, Number(process.env.DEMO_STEP_MS || 1500));
   };
   setTimeout(step, 800);
@@ -87,6 +94,13 @@ function api(method, p, q, body) {
       const remove = normal.filter((m) => !keep.has(m.phone.replace(/\D/g, '')));
       if (p.endsWith('/run')) return fakeJob('Remove members not on keep list — Class of 2027 · Students', remove, 'removed');
       return { action: 'keep', count: remove.length, targets: remove.slice(0, 500), kept: normal.length - remove.length, keepCount: keep.size, missing: Array.from({ length: 41 }, (_, i) => ({ phone: phone(3000 + i), name: '' })) };
+    }
+    if (body.action === 'add') {
+      const present = new Set(members.map((m) => m.phone.replace(/\D/g, '')));
+      const toAdd = [...keep].filter((n) => !present.has(n)).map((n) => ({ phone: '+' + n, name: '' }));
+      if (p.endsWith('/run')) return fakeJob(`Add members — ${(chats.find((c) => c.id === body.chatId) || {}).title}`, toAdd, 'added',
+        (t, i) => (i === 2 ? 'not-added: their privacy settings may block being added — send them an invite link instead' : 'added'));
+      return { action: 'add', count: toAdd.length, targets: toAdd, missing: [], already: keep.size - toAdd.length };
     }
     const targets = normal.filter((m) => keep.has(m.phone.replace(/\D/g, '')));
     if (p.endsWith('/run')) return fakeJob('Bulk action', targets, 'done');

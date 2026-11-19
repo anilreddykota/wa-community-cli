@@ -49,7 +49,15 @@ async function startSession() {
 }
 
 function requireReady() {
-  if (session.state !== 'ready' || !session.wa) throw httpError(503, 'WhatsApp is not ready yet.');
+  if (session.state !== 'ready' || !session.wa) {
+    const why = {
+      starting: 'WhatsApp is still loading. Wait a few seconds and try again.',
+      qr: 'WhatsApp isn\'t linked yet. Scan the QR code on this page with your phone (WhatsApp → Linked devices → Link a device).',
+      closed: 'The WhatsApp window is closed. Click "Connect WhatsApp" at the top.',
+      error: 'WhatsApp couldn\'t start: ' + (session.error || 'unknown error') + '. Click "Connect WhatsApp" to try again.',
+    }[session.state] || 'WhatsApp is not ready yet.';
+    throw httpError(503, why);
+  }
   return session.wa;
 }
 
@@ -72,7 +80,7 @@ let job = null;
 function startJob(opts) {
   if (job && job.state === 'running') throw httpError(409, 'Another job is running. Stop it or wait for it to finish.');
   job = new PacedJob(opts);
-  job.on('log', (t, l) => pushLog(t, l));
+  job.on('log', (t, l) => pushLog(l === 'error' ? String(t).replace(/^(Stopped on error: )?([\s\S]*)$/, (all, p, rest) => (p || '') + friendlyError(rest)) : t, l));
   job.on('item', (it) => {
     pushLog(`${it.done ? '✓' : it.result.startsWith('error') ? '✗' : '•'} ${it.index}/${it.total}  ${it.target}  — ${it.result}`, it.done ? 'ok' : it.result.startsWith('error') ? 'error' : 'info');
     broadcast({ type: 'job', job: job.snapshot() });
@@ -85,6 +93,16 @@ function startJob(opts) {
 
 // ---------- helpers ----------
 function httpError(status, message) { const e = new Error(message); e.status = status; return e; }
+
+// Turn low-level browser/WhatsApp errors into something a person can act on.
+function friendlyError(msg) {
+  const m = String(msg || '');
+  if (/Execution context was destroyed|Cannot find context|detached Frame/i.test(m)) return 'WhatsApp Web reloaded itself while working. Wait a few seconds and try again.';
+  if (/Target closed|Session closed|Protocol error.*closed|browser has disconnected/i.test(m)) return 'The WhatsApp Chrome window was closed. Click "Connect WhatsApp" to open it again.';
+  if (/timed out|timeout/i.test(m)) return 'WhatsApp took too long to answer. Check your phone has internet, then try again.';
+  if (/window\.require is not a function|reading 'getModelsArray'|is not a function/i.test(m)) return 'WhatsApp Web changed or hasn\'t finished loading. Wait a moment and try again; if it keeps happening, this tool needs an update. (' + m.slice(0, 120) + ')';
+  return m;
+}
 const outFile = (prefix, title) => path.join(OUT_DIR, `${title ? safeName(title) + '_' : ''}${prefix}_${stamp()}.csv`);
 
 async function chatById(wa, id) {
@@ -185,7 +203,7 @@ async function api(req, url, body) {
       if (action !== 'keep' && action !== 'removeList' && action !== 'promote' && action !== 'demote' && action !== 'add') throw httpError(400, 'Unknown action.');
       if (action !== 'keep' && action !== 'removeList' && c.myRole === 'member') throw httpError(403, 'You need to be an admin for this.');
       if ((action === 'keep' || action === 'removeList') && run && c.myRole === 'member') throw httpError(403, 'You need to be an admin to remove members.');
-      if (action === 'add' && c.kind !== 'group') throw httpError(400, 'Add people to one of the community\'s groups, not the community itself.');
+      if (action === 'add' && c.kind === 'community' && !c.announceId) throw httpError(400, 'This community\'s Announcements group isn\'t loaded — open the community once in WhatsApp, then try again.');
 
       let plan, targets;
       if (action === 'keep') { plan = planKeepList(members, numbers); targets = plan.remove; }
@@ -381,7 +399,7 @@ const server = http.createServer(async (req, res) => {
   } catch (e) {
     const status = e.status || 500;
     if (status === 500) console.error(e);
-    send(res, status, { error: String(e && e.message ? e.message : e) });
+    send(res, status, { error: friendlyError(e && e.message ? e.message : e) });
   }
 });
 
