@@ -1,0 +1,14 @@
+# dependencies
+node_modules/
+
+# WhatsApp login session — never commit (gives access to the account)
+.wa-session/
+
+# run output and logs (contain phone numbers)
+output/
+.wa-cli-state.json
+
+# never commit member / student lists
+*.csv
+*.xlsx
+*.xls

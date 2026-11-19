@@ -1,0 +1,16 @@
+{
+  "name": "wa-community-cli",
+  "version": "1.0.0",
+  "description": "Interactive terminal tool to manage WhatsApp community and group members through WhatsApp Web, at a human pace.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "wa-community": "index.mjs" },
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@inquirer/prompts": "^7.2.1",
+    "puppeteer-core": "^23.11.1"
+  }
+}
