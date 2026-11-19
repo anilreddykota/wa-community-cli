@@ -7,7 +7,9 @@
   "bin": { "wa-community": "index.mjs" },
   "scripts": {
     "start": "node index.mjs",
-    "ui": "node server.mjs"
+    "ui": "node server.mjs",
+    "demo": "node scripts/demo-server.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "engines": { "node": ">=18" },
   "dependencies": {

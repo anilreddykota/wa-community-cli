@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#00a884"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="300" rx="20" fill="#f6f8f7"/>
+  <rect x="20" y="20" width="840" height="230" rx="16" fill="none" stroke="#00a884" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="40" y="52" font-size="16" font-weight="700" fill="#075e54">YOUR COMPUTER</text>
+  <text x="40" y="274" font-size="14" fill="#5b6b73">Your lists, logs and login stay on your computer</text>
+
+  <!-- boxes -->
+  <g font-size="15" fill="#5b6b73">
+    <rect x="44" y="76" width="230" height="150" rx="14" fill="#ffffff" stroke="#d6dedb"/>
+    <text x="159" y="116" font-size="20" font-weight="700" fill="#111b21" text-anchor="middle">You</text>
+    <text x="159" y="146" text-anchor="middle">Web page at localhost:3030</text>
+    <text x="159" y="170" text-anchor="middle">or the terminal menus</text>
+    <text x="159" y="200" text-anchor="middle" fill="#00a884" font-weight="600">preview · confirm · watch</text>
+
+    <rect x="330" y="76" width="230" height="150" rx="14" fill="#ffffff" stroke="#d6dedb"/>
+    <text x="445" y="116" font-size="20" font-weight="700" fill="#111b21" text-anchor="middle">Manager</text>
+    <text x="445" y="146" text-anchor="middle">Node.js engine</text>
+    <text x="445" y="170" text-anchor="middle">keep-lists, CSV, templates</text>
+    <text x="445" y="200" text-anchor="middle" fill="#00a884" font-weight="600">paced 5–45 s · daily limits</text>
+
+    <rect x="616" y="76" width="230" height="150" rx="14" fill="#ffffff" stroke="#d6dedb"/>
+    <text x="731" y="116" font-size="20" font-weight="700" fill="#111b21" text-anchor="middle">WhatsApp Web</text>
+    <text x="731" y="146" text-anchor="middle">its own Chrome window</text>
+    <text x="731" y="170" text-anchor="middle">linked once with a QR code</text>
+    <text x="731" y="200" text-anchor="middle" fill="#00a884" font-weight="600">same as using it by hand</text>
+
+    <rect x="930" y="76" width="230" height="150" rx="14" fill="#075e54"/>
+    <text x="1045" y="116" font-size="20" font-weight="700" fill="#ffffff" text-anchor="middle">WhatsApp</text>
+    <text x="1045" y="146" text-anchor="middle" fill="#d8fdf2">your communities</text>
+    <text x="1045" y="170" text-anchor="middle" fill="#d8fdf2">and groups</text>
+    <text x="1045" y="200" text-anchor="middle" fill="#ffffff" font-weight="600">end-to-end encrypted</text>
+  </g>
+
+  <g stroke="#00a884" stroke-width="3" fill="none" marker-end="url(#arrow)">
+    <line x1="278" y1="151" x2="324" y2="151"/>
+    <line x1="564" y1="151" x2="610" y2="151"/>
+    <line x1="850" y1="151" x2="924" y2="151"/>
+  </g>
+</svg>

@@ -1,14 +1,47 @@
-# WhatsApp Community & Group Manager
+<p align="center">
+  <img src="docs/banner.svg" alt="WhatsApp Community & Group Manager — clean up big communities, message every class group, send personal notices from one page" width="100%">
+</p>
 
-A free tool that runs on your own computer. It handles repetitive WhatsApp admin work for communities and groups you manage:
+<p align="center">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-00a884"></a>
+  <img alt="Node 18+" src="https://img.shields.io/badge/node-%E2%89%A518-075e54">
+  <img alt="Windows, macOS, Linux" src="https://img.shields.io/badge/runs%20on-Windows%20%7C%20macOS%20%7C%20Linux-128c4b">
+  <img alt="Web UI and CLI" src="https://img.shields.io/badge/web%20UI%20%2B%20CLI-both%20included-25d366">
+  <img alt="No cloud" src="https://img.shields.io/badge/your%20data-stays%20on%20your%20PC-0b3d35">
+</p>
 
-- see and export every member's number
-- keep only the people on your list (e.g. your student list) and remove everyone else
-- remove, add, make admin or remove admin for a list of numbers
-- post one message (or photo/PDF) to many groups at once
-- send personal messages from a spreadsheet: "Dear parent of {Student ID}…"
+<p align="center"><b>Run a 2,000-member WhatsApp community without spending your evenings in "Group info".</b><br>
+Free, open source, and it runs on your own computer: no cloud account, no subscription.</p>
 
-It works through WhatsApp Web at a slow, human-like pace with daily limits, and asks you to confirm before anything changes.
+---
+
+## Why people use it
+
+Running a college batch, a club or an alumni network on WhatsApp means hours of tapping through members one at a time. This tool does the repetitive parts for you:
+
+- 🧹 **Keep-list clean-up.** Upload your student list and it removes everyone else. Admins are never touched.
+- 📣 **One post, many groups.** Send the same notice, photo or PDF to every section group at once.
+- ✉️ **Personal messages from a spreadsheet.** For example `Dear parent of {Student Name}, the pending fee is {Fee Due}`.
+- 👮 **Bulk admin changes.** Make admins, remove admins, add or remove people from a list.
+- 📊 **Export everything.** Every member's number, and every group you're in, as CSV.
+
+It works through **WhatsApp Web, at a human pace, with daily limits**. Nothing happens until you've seen a preview and **typed the exact count** to confirm.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/manage-dark.png">
+    <img src="docs/manage.png" alt="Keep-list clean-up: 1,687 members stay, 310 will be removed, with a list you can download first" width="100%">
+  </picture>
+  <br><sub>Paste or upload your list, then <b>Preview</b>: see exactly who stays and who goes, before anything happens.</sub>
+</p>
+
+### Try it in 30 seconds, no WhatsApp needed
+
+```powershell
+git clone https://github.com/anilreddykota/wa-community-cli; cd wa-community-cli; npm install; npm run demo
+```
+
+Then open <http://localhost:3031>. **Demo mode** uses made-up data and never connects to WhatsApp, so you can click everything.
 
 ---
 
@@ -52,6 +85,51 @@ That's it. Next time, just double-click `start-ui.bat` again. No QR code needed.
 Number lists can be any CSV or text file. Every phone-number cell is read; names, IDs and headers are ignored. 10-digit numbers get the country code (91) added. Your files never leave your computer: everything runs locally.
 
 Before anything is removed, changed or sent, the tool asks you to **type the exact number of people**.
+
+### Screenshots
+
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/broadcast-dark.png">
+        <img src="docs/broadcast.png" alt="Send one message with a PDF to four section groups at once">
+      </picture>
+      <p align="center"><b>One notice → every section group</b><br><sub>Tick the groups, attach the timetable, send.</sub></p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/personal-dark.png">
+        <img src="docs/personal.png" alt="Personal messages filled from a CSV: Dear parent of Aarav Sharma, the pending fee is 4500">
+      </picture>
+      <p align="center"><b>Mail-merge from a spreadsheet</b><br><sub>Each parent gets their own child's details. Preview first.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/confirm-dark.png">
+        <img src="docs/confirm.png" alt="Confirmation box: type 310 to confirm removing 310 members">
+      </picture>
+      <p align="center"><b>No accidents</b><br><sub>You type the exact count before anything changes.</sub></p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/progress-dark.png">
+        <img src="docs/progress.png" alt="Live progress bar and log while members are removed, with Pause and Stop">
+      </picture>
+      <p align="center"><b>Live progress, Pause and Stop</b><br><sub>Human-paced, with a log you can download.</sub></p>
+    </td>
+  </tr>
+</table>
+
+<sub>Screenshots are from demo mode, with made-up names and +1 555-01xx numbers (a range reserved for fiction). Regenerate them with `npm run screenshots`.</sub>
+
+### How it works
+
+<p align="center"><img src="docs/how-it-works.svg" alt="You use a local web page or the terminal; the Node.js manager drives WhatsApp Web in its own Chrome window; WhatsApp sees normal WhatsApp Web activity" width="100%"></p>
+
+The tool drives WhatsApp Web in its own Chrome window, the same way you would by hand, only paced and repeatable. There's no server in the middle and no account to create. Your lists, logs and login stay on your computer.
 
 ## Disconnecting WhatsApp
 
@@ -98,10 +176,29 @@ Both have the same features and share the same WhatsApp login and daily limits. 
 
 ## Chrome extension
 
-- 
-**Chrome extension:** in [`extension/`](extension/). It adds a simple **Community Cleaner** button inside your normal WhatsApp Web, for export and keep-list removal only. See [extension/README.md](extension/README.md).
+[`extension/`](extension/) adds a simple **Community Cleaner** button inside your normal WhatsApp Web, for export and keep-list removal only. See [extension/README.md](extension/README.md).
 
-For developers: `npm install`, then `npm run ui` (web) or `npm start` (terminal). The code is in `server.mjs` (web server), `public/index.html` (page), `index.mjs` (terminal), `lib/engine.mjs` (shared logic) and `lib/inpage.js` (runs inside WhatsApp Web).
+## For developers
+
+```powershell
+npm install
+```
+
+| Command | What it does |
+|---|---|
+| `npm run ui` | web version |
+| `npm start` | terminal version |
+| `npm run demo` | web UI with made-up data, no WhatsApp |
+| `npm run screenshots` | regenerate the README images from demo mode |
+
+Where the code lives:
+- `server.mjs`: local web server
+- `public/index.html`: the page
+- `index.mjs`: terminal version
+- `lib/engine.mjs`: shared logic
+- `lib/inpage.js`: the part that runs inside WhatsApp Web
+
+Pull requests are welcome, especially fixes for WhatsApp Web updates.
 
 ## What's tested on a live account
 
@@ -129,4 +226,8 @@ This is an unofficial tool. It isn't affiliated with or endorsed by WhatsApp or 
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Free to use, change and share.
+
+---
+
+<p align="center"><b>If this saved you an evening of tapping through "Group info", give it a ⭐ and share it with another group admin.</b></p>

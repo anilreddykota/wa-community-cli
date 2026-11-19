@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="440" viewBox="0 0 1280 440" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b3d35"/>
+      <stop offset="0.55" stop-color="#075e54"/>
+      <stop offset="1" stop-color="#00a884"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="440" rx="24" fill="url(#bg)"/>
+  <circle cx="1180" cy="-40" r="260" fill="url(#glow)"/>
+  <circle cx="80" cy="470" r="200" fill="url(#glow)"/>
+
+  <!-- icon: two chat bubbles with people -->
+  <g transform="translate(64 64)">
+    <rect width="64" height="64" rx="18" fill="#ffffff" fill-opacity="0.14"/>
+    <path d="M14 22a8 8 0 0 1 8-8h20a8 8 0 0 1 8 8v12a8 8 0 0 1-8 8H28l-8 7v-7h0a8 8 0 0 1-6-8z" fill="#ffffff"/>
+    <circle cx="26" cy="28" r="3" fill="#075e54"/><circle cx="32" cy="28" r="3" fill="#075e54"/><circle cx="38" cy="28" r="3" fill="#075e54"/>
+  </g>
+  <text x="144" y="94" fill="#d8fdf2" font-size="20" font-weight="600" letter-spacing="2">OPEN SOURCE · RUNS ON YOUR PC</text>
+
+  <text x="64" y="186" fill="#ffffff" font-size="56" font-weight="700">WhatsApp Community</text>
+  <text x="64" y="250" fill="#ffffff" font-size="56" font-weight="700">&amp; Group Manager</text>
+  <text x="64" y="300" fill="#d8fdf2" font-size="22">Clean up 2,000-member communities, message every</text>
+  <text x="64" y="330" fill="#d8fdf2" font-size="22">class group, send personal notices — from one page.</text>
+
+  <!-- pills -->
+  <g font-size="17" font-weight="600" fill="#ffffff">
+    <rect x="64" y="362" width="180" height="38" rx="19" fill="#ffffff" fill-opacity="0.16"/><text x="154" y="387" text-anchor="middle">Keep-list clean-up</text>
+    <rect x="254" y="362" width="170" height="38" rx="19" fill="#ffffff" fill-opacity="0.16"/><text x="339" y="387" text-anchor="middle">Bulk group posts</text>
+    <rect x="434" y="362" width="160" height="38" rx="19" fill="#ffffff" fill-opacity="0.16"/><text x="514" y="387" text-anchor="middle">CSV mail-merge</text>
+    <rect x="604" y="362" width="116" height="38" rx="19" fill="#ffffff" fill-opacity="0.16"/><text x="662" y="387" text-anchor="middle">Web + CLI</text>
+  </g>
+
+  <!-- mock app card -->
+  <g transform="translate(760 70)" filter="url(#shadow)">
+    <rect width="456" height="300" rx="18" fill="#ffffff"/>
+    <rect width="456" height="52" rx="18" fill="#f0f2f1"/>
+    <rect y="34" width="456" height="18" fill="#f0f2f1"/>
+    <circle cx="26" cy="26" r="6" fill="#ff5f57"/><circle cx="46" cy="26" r="6" fill="#febc2e"/><circle cx="66" cy="26" r="6" fill="#28c840"/>
+    <text x="92" y="32" font-size="15" font-weight="600" fill="#111b21">localhost:3030</text>
+    <rect x="352" y="14" width="88" height="24" rx="12" fill="#e7f6f2"/><text x="396" y="31" font-size="13" font-weight="600" fill="#128c4b" text-anchor="middle">Connected</text>
+
+    <text x="24" y="88" font-size="16" font-weight="700" fill="#111b21">Class of 2027 · Students</text>
+    <text x="24" y="110" font-size="13" fill="#667781">Community · 2,000 members · you are owner</text>
+
+    <g font-size="13" fill="#667781">
+      <rect x="24" y="126" width="128" height="72" rx="10" fill="#f0f2f1"/>
+      <text x="38" y="160" font-size="26" font-weight="700" fill="#111b21">1,728</text><text x="38" y="184">keep-list numbers</text>
+      <rect x="164" y="126" width="128" height="72" rx="10" fill="#f0f2f1"/>
+      <text x="178" y="160" font-size="26" font-weight="700" fill="#128c4b">1,687</text><text x="178" y="184">stay in</text>
+      <rect x="304" y="126" width="128" height="72" rx="10" fill="#f0f2f1"/>
+      <text x="318" y="160" font-size="26" font-weight="700" fill="#d93025">310</text><text x="318" y="184">to remove</text>
+    </g>
+
+    <rect x="24" y="214" width="408" height="8" rx="4" fill="#f0f2f1"/>
+    <rect x="24" y="214" width="260" height="8" rx="4" fill="#00a884"/>
+    <text x="24" y="246" font-size="13" fill="#667781">✓ 198/310 removed · paced 5–9 s · Pause / Stop anytime</text>
+    <rect x="300" y="258" width="132" height="30" rx="8" fill="#d93025"/>
+    <text x="366" y="278" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">Remove 310</text>
+    <rect x="24" y="258" width="132" height="30" rx="8" fill="#f0f2f1"/>
+    <text x="90" y="278" font-size="13" font-weight="600" fill="#111b21" text-anchor="middle">Download list</text>
+  </g>
+</svg>
