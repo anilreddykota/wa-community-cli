@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsApp Manager</title>
+<style>
+  :root {
+    --bg: #f4f6f5; --panel: #ffffff; --panel2: #f0f2f1; --text: #111b21; --muted: #667781; --line: #e2e6e4;
+    --accent: #00a884; --accent-ink: #ffffff; --danger: #d93025; --warn: #b26a00; --ok: #128c4b; --chip: #e7f6f2;
+    --shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b141a; --panel: #111b21; --panel2: #1f2c34; --text: #e9edef; --muted: #8696a0; --line: #233138;
+      --accent: #00a884; --accent-ink: #ffffff; --danger: #f15c6d; --warn: #ffb74d; --ok: #3ddc84; --chip: #12352d;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", Roboto, system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .pill { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--panel2); color: var(--muted); }
+  .pill.ready { background: var(--chip); color: var(--ok); }
+  .pill.qr, .pill.starting { color: var(--warn); }
+  .pill.error, .pill.closed { color: var(--danger); }
+  .usage { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+  .usage span { font-size: 12px; color: var(--muted); background: var(--panel2); padding: 3px 8px; border-radius: 6px; }
+  .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 53px - var(--jobh, 0px)); }
+  aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  aside .tools { padding: 10px; display: flex; gap: 6px; border-bottom: 1px solid var(--line); }
+  .chatlist { overflow: auto; flex: 1; }
+  .chat { padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  .chat:hover { background: var(--panel2); }
+  .chat.sel { background: var(--chip); }
+  .chat .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat .m { font-size: 12px; color: var(--muted); display: flex; gap: 6px; }
+  .badge { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--panel2); color: var(--muted); }
+  .badge.owner, .badge.admin { color: var(--ok); }
+  main { overflow: auto; padding: 16px 20px 40px; min-width: 0; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .tabs button { background: none; border: none; padding: 9px 14px; color: var(--muted); font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 15px; margin: 0 0 10px; }
+  .card h3 { font-size: 13px; margin: 12px 0 6px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; min-width: 160px; }
+  input[type=text], input[type=search], select, textarea { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  textarea { min-height: 90px; resize: vertical; }
+  button.b { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; white-space: nowrap; }
+  button.b:hover:not(:disabled) { filter: brightness(.97); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 10px 0; }
+  .stat { background: var(--panel2); border-radius: 8px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 20px; }
+  .stat.red b { color: var(--danger); } .stat.green b { color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+  .tablewrap { max-height: 320px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .preview { background: var(--chip); border-radius: 8px; padding: 8px 10px; margin: 6px 0; white-space: pre-wrap; }
+  .preview .to { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  .chips button { background: var(--chip); color: var(--ok); border: none; border-radius: 999px; padding: 2px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  .checklist { max-height: 340px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .checklist label { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .warnbox { background: color-mix(in srgb, var(--warn) 14%, transparent); border-radius: 8px; padding: 8px 10px; margin: 8px 0; font-size: 13px; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  #job { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); z-index: 6; }
+  #job .head { display: flex; gap: 10px; align-items: center; padding: 8px 16px; flex-wrap: wrap; }
+  #job .bar { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; flex: 1; min-width: 120px; }
+  #job .bar div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  #log { height: 150px; overflow: auto; font: 12px/1.5 Consolas, ui-monospace, monospace; padding: 6px 16px 10px; border-top: 1px solid var(--line); }
+  #log .error { color: var(--danger); } #log .warn { color: var(--warn); } #log .ok { color: var(--ok); }
+  #job.collapsed #log { display: none; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .overlay.show { display: flex; }
+  .modal { background: var(--panel); border-radius: 12px; padding: 20px; max-width: 460px; width: 100%; }
+  .modal h2 { margin: 0 0 8px; font-size: 17px; }
+  #qrimg { width: 300px; height: 300px; background: #fff; padding: 18px; border-radius: 8px; display: block; margin: 12px auto; image-rendering: pixelated; }
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+    aside { max-height: 45vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>WhatsApp Manager</h1>
+  <span id="status" class="pill starting">Starting…</span>
+  <button class="b" id="reconnect" hidden>Connect WhatsApp</button>
+  <div class="usage" id="usage"></div>
+  <button class="b" id="logout" title="Close WhatsApp and delete the saved login on this computer">Log out</button>
+  <button class="b" id="quit" title="Stop the app">Quit</button>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="tools">
+      <input type="search" id="q" placeholder="Search groups & communities">
+      <select id="filter" style="width:120px">
+        <option value="all">All</option>
+        <option value="community">Communities</option>
+        <option value="group">Groups</option>
+        <option value="admin">I'm admin</option>
+      </select>
+    </div>
+    <div class="chatlist" id="chats"><div class="empty">Waiting for WhatsApp…</div></div>
+  </aside>
+
+  <main>
+    <div class="tabs" id="tabs">
+      <button data-tab="manage" class="on">Manage</button>
+      <button data-tab="broadcast">Message many groups</button>
+      <button data-tab="dms">Personal messages</button>
+      <button data-tab="export">Export &amp; limits</button>
+    </div>
+
+    <!-- MANAGE -->
+    <section data-pane="manage">
+      <div id="noChat" class="empty">Pick a group or community on the left.</div>
+      <div id="chatPane" hidden>
+        <div class="card">
+          <div class="row"><h2 id="cTitle" class="grow" style="margin:0"></h2><button class="b" id="exportMembers">Export members CSV</button></div>
+          <div class="stats" id="cStats"></div>
+          <div class="row" style="margin-bottom:6px"><input type="search" id="mq" placeholder="Search members by name or number" class="grow"></div>
+          <div class="tablewrap"><table><thead><tr><th>Phone</th><th>Name</th><th>Role</th></tr></thead><tbody id="mRows"></tbody></table></div>
+          <div class="small muted" id="mNote" style="margin-top:4px"></div>
+        </div>
+
+        <div class="card">
+          <h2>Bulk member action</h2>
+          <div class="row">
+            <select id="bAction" class="grow">
+              <option value="keep">Remove everyone NOT on this list (keep list)</option>
+              <option value="removeList">Remove the numbers on this list</option>
+              <option value="promote">Make the numbers on this list admins</option>
+              <option value="demote">Remove admin rights from the numbers on this list</option>
+              <option value="add">Add the numbers on this list (groups only)</option>
+            </select>
+          </div>
+          <h3>Numbers</h3>
+          <textarea id="bText" placeholder="Paste numbers, or load a CSV/text file. Any column with phone numbers is used; names and IDs are ignored."></textarea>
+          <div class="row" style="margin-top:6px">
+            <input type="file" id="bFile" accept=".csv,.txt">
+            <span class="small muted" id="bFileInfo"></span>
+            <span class="grow"></span>
+            <button class="b" id="bPreview">Preview</button>
+          </div>
+          <div id="bResult"></div>
+        </div>
+
+        <div class="card" id="postCard">
+          <h2 id="postTitle">Post a message</h2>
+          <div class="composer" data-id="post"></div>
+          <div class="row" style="margin-top:8px"><span class="grow"></span><button class="b primary" id="postSend">Send</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BROADCAST -->
+    <section data-pane="broadcast" hidden>
+      <div class="card">
+        <h2>Send one message to many groups &amp; communities</h2>
+        <p class="small muted" style="margin-top:0">Communities post to their Announcements group. Only chats where you're allowed to post are listed.</p>
+        <div class="row"><input type="search" id="bcq" placeholder="Filter" class="grow"><button class="b" id="bcAll">Select shown</button><button class="b" id="bcNone">Clear</button></div>
+        <div class="checklist" id="bcList" style="margin-top:8px"></div>
+        <div class="small muted" id="bcCount" style="margin-top:4px">0 selected</div>
+      </div>
+      <div class="card">
+        <h2>Message</h2>
+        <div class="composer" data-id="bc"></div>
+        <div class="row" style="margin-top:8px"><span class="grow"></span><button class="b primary" id="bcSend">Send to selected</button></div>
+      </div>
+    </section>
+
+    <!-- DMS -->
+    <section data-pane="dms" hidden>
+      <div class="warnbox">Personal messages are the riskiest thing to automate: people who don't expect them report them, and reports get numbers banned. For announcements, post once in your community's Announcements instead. To keep this safe, messages only go to members of a group/community you pick.</div>
+      <div class="card">
+        <h2>1. Recipients CSV</h2>
+        <input type="file" id="dFile" accept=".csv">
+        <div class="small muted" id="dInfo" style="margin-top:6px">Needs a header row. Every column can be used as a {placeholder}.</div>
+        <div class="row" style="margin-top:8px">
+          <label class="grow">Phone column<select id="dPhone"></select></label>
+          <label class="grow">Only message members of<select id="dGate"></select></label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>2. Message</h2>
+        <div class="chips" id="dChips"></div>
+        <div class="composer" data-id="dm"></div>
+        <div class="row" style="margin-top:8px"><span class="grow"></span><button class="b" id="dPreview">Preview</button></div>
+        <div id="dResult"></div>
+      </div>
+    </section>
+
+    <!-- EXPORT -->
+    <section data-pane="export" hidden>
+      <div class="card">
+        <h2>Export all my groups &amp; communities</h2>
+        <label class="row small"><input type="checkbox" id="xFull"> Load full member counts for communities (slower, read-only)</label>
+        <div class="row" style="margin-top:8px"><button class="b primary" id="xGo">Export CSV</button><span class="small muted" id="xInfo"></span></div>
+        <p class="small muted">Invite links appear only for groups whose "Invite via link" screen you've opened once in WhatsApp.</p>
+      </div>
+      <div class="card">
+        <h2>Today's limits</h2>
+        <table><thead><tr><th>Kind</th><th>Used today</th><th>Daily limit</th></tr></thead><tbody id="limits"></tbody></table>
+        <p class="small muted">Change limits and pacing in <code>config.json</code> (see README), then restart.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="job">
+  <div class="head">
+    <b id="jLabel">No job running</b>
+    <span class="small muted" id="jCount"></span>
+    <div class="bar"><div id="jBar"></div></div>
+    <button class="b" id="jPause" disabled>Pause</button>
+    <button class="b" id="jStop" disabled>Stop</button>
+    <button class="b" id="jLog" disabled>Download log</button>
+    <button class="b" id="jToggle" title="Show/hide log">▾</button>
+  </div>
+  <div id="log"></div>
+</div>
+
+<div class="overlay" id="qrOverlay">
+  <div class="modal" style="text-align:center">
+    <h2>Link WhatsApp</h2>
+    <div class="muted">On your phone: <b>WhatsApp → Linked devices → Link a device</b>, then scan this code.</div>
+    <img id="qrimg" alt="WhatsApp QR code">
+    <div class="small muted">You only need to do this once. The code refreshes automatically.<br>If it still won't scan, scan the code shown in the separate WhatsApp Chrome window instead.</div>
+  </div>
+</div>
+
+<div class="overlay" id="confirmOverlay">
+  <div class="modal">
+    <h2 id="cfTitle">Confirm</h2>
+    <div id="cfText" class="muted"></div>
+    <p class="small">Type <b id="cfNum"></b> to confirm:</p>
+    <input type="text" id="cfInput" autocomplete="off">
+    <div class="row" style="margin-top:12px;justify-content:flex-end">
+      <button class="b" id="cfCancel">Cancel</button>
+      <button class="b danger" id="cfOk" disabled>Confirm</button>
+    </div>
+  </div>
+</div>
+
+<template id="composerTpl">
+  <textarea class="ctext" placeholder="Write your message…"></textarea>
+  <div class="row" style="margin-top:6px">
+    <input type="file" class="cfile">
+    <button class="b cclear" hidden>Remove attachment</button>
+    <span class="small muted cinfo"></span>
+  </div>
+</template>
+
+<script>
+const TOKEN = '__TOKEN__';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const el = (tag, props = {}, ...kids) => { const e = document.createElement(tag); Object.assign(e, props); for (const k of kids) e.append(k); return e; };
+
+const state = { status: 'starting', chats: [], sel: null, members: [], job: null, bc: new Set(), dmCsv: '', dmHeaders: [] };
+
+async function api(path, body) {
+  const opt = { headers: { 'X-Token': TOKEN } };
+  if (body !== undefined) { opt.method = 'POST'; opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function toast(msg, level = 'error') { addLog({ text: msg, level, time: new Date().toISOString() }); }
+function download(name, text) {
+  const a = el('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })), download: name });
+  document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function csv(rows, cols) {
+  const esc = (v) => { const s = String(v ?? ''); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  return '﻿' + [cols.join(','), ...rows.map((r) => cols.map((k) => esc(r[k])).join(','))].join('\r\n');
+}
+const fileToBase64 = (file) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(file); });
+
+// ---------- confirm modal ----------
+function confirmCount(title, text, n) {
+  return new Promise((resolve) => {
+    $('#cfTitle').textContent = title; $('#cfText').textContent = text; $('#cfNum').textContent = n;
+    const inp = $('#cfInput'); inp.value = ''; $('#cfOk').disabled = true;
+    $('#confirmOverlay').classList.add('show'); inp.focus();
+    inp.oninput = () => { $('#cfOk').disabled = inp.value.trim() !== String(n); };
+    const done = (v) => { $('#confirmOverlay').classList.remove('show'); resolve(v); };
+    $('#cfOk').onclick = () => done(inp.value.trim());
+    $('#cfCancel').onclick = () => done(null);
+    inp.onkeydown = (e) => { if (e.key === 'Enter' && !$('#cfOk').disabled) done(inp.value.trim()); if (e.key === 'Escape') done(null); };
+  });
+}
+
+// ---------- composer ----------
+const composers = {};
+for (const host of $$('.composer')) {
+  host.append($('#composerTpl').content.cloneNode(true));
+  const c = { text: $('.ctext', host), file: $('.cfile', host), clear: $('.cclear', host), info: $('.cinfo', host), media: null };
+  c.file.onchange = async () => {
+    const f = c.file.files[0]; if (!f) return;
+    if (f.size > 64 * 1048576) { toast('File too large (max 64 MB).'); c.file.value = ''; return; }
+    c.media = { name: f.name, base64: await fileToBase64(f) };
+    c.info.textContent = `${f.name} · ${(f.size / 1048576).toFixed(2)} MB`; c.clear.hidden = false;
+  };
+  c.clear.onclick = () => { c.media = null; c.file.value = ''; c.info.textContent = ''; c.clear.hidden = true; };
+  composers[host.dataset.id] = c;
+}
+
+// ---------- tabs ----------
+for (const b of $$('#tabs button')) b.onclick = () => {
+  $$('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  $$('section[data-pane]').forEach((s) => (s.hidden = s.dataset.pane !== b.dataset.tab));
+  if (b.dataset.tab === 'broadcast') renderBroadcastList();
+  if (b.dataset.tab === 'export') refreshUsage();
+};
+
+// ---------- status & usage ----------
+function setStatus(s, qr, error) {
+  const prev = state.status;
+  state.status = s;
+  if (s === 'qr' && prev === 'ready') { state.chats = []; state.sel = null; renderChats(); $('#noChat').hidden = false; $('#chatPane').hidden = true; }
+  if (s === 'ready' && prev !== 'ready') state.chats = [];
+  const pill = $('#status');
+  pill.className = 'pill ' + s;
+  pill.textContent = { starting: 'Starting WhatsApp…', qr: 'Scan QR code', ready: 'Connected', closed: 'WhatsApp window closed', error: 'Error' }[s] || s;
+  if (error) pill.title = error;
+  $('#reconnect').hidden = !(s === 'closed' || s === 'error');
+  $('#qrOverlay').classList.toggle('show', s === 'qr');
+  if (qr) $('#qrimg').src = qr;
+  if (s === 'ready' && !state.chats.length) loadChats();
+}
+async function refreshUsage() {
+  try {
+    const u = await api('/api/usage');
+    $('#usage').replaceChildren(...Object.values(u).map((x) => el('span', { textContent: `${x.label}: ${x.used}/${x.limit}` })));
+    $('#limits').replaceChildren(...Object.values(u).map((x) => el('tr', {}, el('td', { textContent: x.label }), el('td', { textContent: x.used }), el('td', { textContent: x.limit }))));
+  } catch {}
+}
+$('#reconnect').onclick = () => api('/api/reconnect', {}).catch((e) => toast(e.message));
+$('#logout').onclick = async () => {
+  if (!confirm('Log out of WhatsApp on this computer?\n\nThis closes the WhatsApp window and deletes the saved login here. To fully disconnect, also remove "Google Chrome (Windows)" under Linked devices on your phone.\n\nNext time you will need to scan a QR code again.')) return;
+  try { await api('/api/logout', {}); state.chats = []; state.sel = null; renderChats(); $('#noChat').hidden = false; $('#chatPane').hidden = true; }
+  catch (e) { toast(e.message); }
+};
+$('#quit').onclick = async () => {
+  if (state.job && state.job.state === 'running' && !confirm('A job is still running. Quit anyway? It will stop after the current item.')) return;
+  try { await api('/api/quit', {}); } catch {}
+  document.body.replaceChildren(el('div', { className: 'empty', style: 'padding-top:20vh' },
+    el('h2', { textContent: 'WhatsApp Manager has stopped.' }),
+    el('p', { textContent: 'You can close this tab. To start again, double-click start-ui.bat (or run: npm run ui).' })));
+};
+
+// ---------- chats ----------
+const KIND = { community: 'Community', group: 'Group' };
+async function loadChats() {
+  try { state.chats = await api('/api/chats'); renderChats(); renderGateSelect(); }
+  catch (e) { toast(e.message); }
+}
+function renderChats() {
+  const q = $('#q').value.toLowerCase(), f = $('#filter').value;
+  const list = state.chats.filter((c) =>
+    (!q || c.title.toLowerCase().includes(q) || c.parentTitle.toLowerCase().includes(q)) &&
+    (f === 'all' || (f === 'admin' ? c.myRole !== 'member' : c.kind === f)));
+  const box = $('#chats');
+  if (!list.length) { box.replaceChildren(el('div', { className: 'empty', textContent: state.chats.length ? 'No matches' : 'Loading…' })); return; }
+  box.replaceChildren(...list.slice(0, 400).map((c) => {
+    const meta = el('div', { className: 'm' }, el('span', { className: 'badge', textContent: KIND[c.kind] }));
+    if (c.myRole !== 'member') meta.append(el('span', { className: 'badge ' + c.myRole, textContent: c.myRole }));
+    if (c.parentTitle) meta.append(el('span', { textContent: 'in ' + c.parentTitle }));
+    const row = el('div', { className: 'chat' + (state.sel && state.sel.id === c.id ? ' sel' : '') }, el('div', { className: 't', textContent: c.title }), meta);
+    row.onclick = () => selectChat(c);
+    return row;
+  }));
+}
+$('#q').oninput = renderChats; $('#filter').onchange = renderChats;
+
+async function selectChat(c) {
+  state.sel = c; renderChats();
+  $('#tabs button[data-tab=manage]').click();
+  $('#noChat').hidden = true; $('#chatPane').hidden = false;
+  $('#cTitle').textContent = c.title;
+  $('#cStats').replaceChildren(el('div', { className: 'stat' }, el('b', { textContent: '…' }), 'Loading members'));
+  $('#mRows').replaceChildren(); $('#bResult').replaceChildren();
+  $('#postCard').hidden = !c.canSend;
+  $('#postTitle').textContent = c.kind === 'community' ? 'Post to Announcements' : 'Post a message';
+  const isAdmin = c.myRole !== 'member';
+  for (const o of $$('#bAction option')) o.disabled = (!isAdmin && o.value !== 'keep') || (o.value === 'add' && c.kind !== 'group');
+  if ($('#bAction').selectedOptions[0].disabled) $('#bAction').value = 'keep';
+  try {
+    const r = await api('/api/members?id=' + encodeURIComponent(c.id));
+    if (state.sel !== c) return;
+    state.members = r.members;
+    $('#cStats').replaceChildren(
+      stat('Members', r.members.length), stat('Admins / owner', r.admins), stat('Hidden numbers', r.hidden),
+      stat('You are', c.myRole), stat('Type', KIND[c.kind]));
+    renderMembers();
+  } catch (e) { toast(e.message); }
+}
+function stat(label, val, cls = '') { return el('div', { className: 'stat ' + cls }, el('b', { textContent: val }), label); }
+function renderMembers() {
+  const q = $('#mq').value.toLowerCase();
+  const list = state.members.filter((m) => !q || m.phone.includes(q.replace(/\s/g, '')) || m.name.toLowerCase().includes(q));
+  $('#mRows').replaceChildren(...list.slice(0, 300).map((m) => el('tr', {}, el('td', { textContent: m.phone || '(hidden)' }), el('td', { textContent: m.name }), el('td', { textContent: m.role }))));
+  $('#mNote').textContent = list.length > 300 ? `Showing 300 of ${list.length}. Search to narrow down, or export the CSV.` : `${list.length} shown`;
+}
+$('#mq').oninput = renderMembers;
+$('#exportMembers').onclick = async () => {
+  try { const r = await api('/api/export/members', { chatId: state.sel.id }); download(r.name, r.csv); toast(`Exported ${r.count} members (also saved in output/${r.name}).`, 'ok'); }
+  catch (e) { toast(e.message); }
+};
+
+// ---------- bulk member action ----------
+$('#bFile').onchange = async () => { const f = $('#bFile').files[0]; if (!f) return; $('#bText').value = await f.text(); $('#bFileInfo').textContent = f.name; };
+$('#bAction').onchange = () => $('#bResult').replaceChildren();
+$('#bPreview').onclick = async () => {
+  const action = $('#bAction').value, text = $('#bText').value;
+  if (!text.trim()) return toast('Paste numbers or load a file first.');
+  const box = $('#bResult'); box.replaceChildren(el('p', { className: 'muted', textContent: 'Checking…' }));
+  try {
+    const r = await api('/api/members/plan', { chatId: state.sel.id, action, text });
+    const verb = { keep: 'remove', removeList: 'remove', promote: 'make admin', demote: 'remove admin rights from', add: 'add' }[action];
+    const stats = el('div', { className: 'stats' });
+    if (action === 'keep') stats.append(stat('Keep-list numbers', r.keepCount), stat('Members on keep list', r.kept, 'green'), stat('Will be removed', r.count, 'red'), stat('On list, not a member', r.missing.length));
+    else if (action === 'add') stats.append(stat('Already members', r.already), stat('Will be added', r.count, 'green'));
+    else stats.append(stat(`Will ${verb}`, r.count, action === 'removeList' ? 'red' : 'green'), stat('Not in this chat', r.missing.length));
+    const actions = el('div', { className: 'row' });
+    if (r.targets.length) actions.append(btn(`Download list (${r.count})`, () => download('to_' + action + '.csv', csv(r.targets, ['phone', 'name']))));
+    if (r.missing.length) actions.append(btn(`Download not-in-chat (${r.missing.length})`, () => download('not_in_chat.csv', csv(r.missing, ['phone']))));
+    actions.append(el('span', { className: 'grow' }));
+    if (r.count) actions.append(btn(`${verb[0].toUpperCase() + verb.slice(1)} ${r.count} ${action === 'add' ? 'people' : 'members'}`, async () => {
+      const v = await confirmCount('Confirm', `This will ${verb} ${r.count} ${action === 'add' ? 'people' : 'members'} in "${state.sel.title}". ${action === 'keep' || action === 'removeList' ? 'Removals cannot be undone.' : ''}`, r.count);
+      if (v === null) return;
+      try { await api('/api/members/run', { chatId: state.sel.id, action, text, confirm: v }); box.replaceChildren(el('p', { className: 'muted', textContent: 'Started — follow progress at the bottom.' })); }
+      catch (e) { toast(e.message); }
+    }, action === 'keep' || action === 'removeList' ? 'danger' : 'primary'));
+    const table = el('div', { className: 'tablewrap', style: 'max-height:200px;margin-top:8px' },
+      el('table', {}, el('thead', {}, el('tr', {}, el('th', { textContent: 'Phone' }), el('th', { textContent: 'Name' }))),
+        el('tbody', {}, ...r.targets.slice(0, 200).map((m) => el('tr', {}, el('td', { textContent: m.phone }), el('td', { textContent: m.name }))))));
+    box.replaceChildren(stats, actions, r.targets.length ? table : '');
+    if (action === 'promote' || action === 'demote') box.prepend(el('div', { className: 'warnbox', textContent: 'Admin changes in communities have not been tested live yet — try one number first.' }));
+  } catch (e) { box.replaceChildren(); toast(e.message); }
+};
+function btn(label, onclick, cls = '') { const b = el('button', { className: 'b ' + cls, textContent: label }); b.onclick = onclick; return b; }
+
+// ---------- post to selected chat ----------
+$('#postSend').onclick = () => sendBroadcast([state.sel.id], composers.post);
+
+// ---------- broadcast ----------
+function renderBroadcastList() {
+  const q = $('#bcq').value.toLowerCase();
+  const list = state.chats.filter((c) => c.canSend && (!q || c.title.toLowerCase().includes(q) || c.parentTitle.toLowerCase().includes(q)));
+  $('#bcList').replaceChildren(...list.map((c) => {
+    const cb = el('input', { type: 'checkbox', checked: state.bc.has(c.id) });
+    cb.onchange = () => { cb.checked ? state.bc.add(c.id) : state.bc.delete(c.id); bcCount(); };
+    return el('label', {}, cb, el('span', { className: 'badge', textContent: KIND[c.kind] }), el('span', { textContent: c.title }));
+  }));
+  $('#bcList').dataset.shown = JSON.stringify(list.map((c) => c.id));
+  bcCount();
+}
+function bcCount() { $('#bcCount').textContent = `${state.bc.size} selected`; }
+$('#bcq').oninput = renderBroadcastList;
+$('#bcAll').onclick = () => { for (const id of JSON.parse($('#bcList').dataset.shown || '[]')) state.bc.add(id); renderBroadcastList(); };
+$('#bcNone').onclick = () => { state.bc.clear(); renderBroadcastList(); };
+$('#bcSend').onclick = () => sendBroadcast([...state.bc], composers.bc);
+
+async function sendBroadcast(ids, comp) {
+  const text = comp.text.value.trim();
+  if (!ids.length) return toast('Pick at least one group or community.');
+  if (!text && !comp.media) return toast('Write a message or attach a file.');
+  const names = ids.map((id) => (state.chats.find((c) => c.id === id) || {}).title).filter(Boolean);
+  const v = await confirmCount('Send message', `Send this message to ${ids.length} chat(s): ${names.slice(0, 5).join(', ')}${names.length > 5 ? '…' : ''}`, ids.length);
+  if (v === null) return;
+  try { await api('/api/broadcast/run', { chatIds: ids, text, media: comp.media, confirm: v }); toast('Sending started — follow progress at the bottom.', 'ok'); }
+  catch (e) { toast(e.message); }
+}
+
+// ---------- personal messages ----------
+function renderGateSelect() {
+  const sel = $('#dGate'); const prev = sel.value;
+  sel.replaceChildren(el('option', { value: '', textContent: '— pick a group or community —' }),
+    ...state.chats.map((c) => el('option', { value: c.id, textContent: `${KIND[c.kind]}: ${c.title}` })));
+  sel.value = prev;
+}
+$('#dFile').onchange = async () => {
+  const f = $('#dFile').files[0]; if (!f) return;
+  state.dmCsv = await f.text();
+  try {
+    const r = await api('/api/dms/inspect', { csv: state.dmCsv });
+    state.dmHeaders = r.headers;
+    $('#dInfo').textContent = `${f.name}: ${r.rows} rows, columns: ${r.headers.join(', ')}`;
+    $('#dPhone').replaceChildren(...(r.phoneColumns.length ? r.phoneColumns : r.headers).map((h) => el('option', { value: h, textContent: h })));
+    $('#dChips').replaceChildren(...r.headers.map((h) => btn(`{${h}}`, () => insertAtCursor(composers.dm.text, `{${h}}`))));
+  } catch (e) { toast(e.message); }
+};
+function insertAtCursor(t, s) { const a = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, a) + s + t.value.slice(t.selectionEnd ?? a); t.focus(); t.selectionStart = t.selectionEnd = a + s.length; }
+$('#dPreview').onclick = async () => {
+  if (!state.dmCsv) return toast('Load a recipients CSV first.');
+  if (!$('#dGate').value) return toast('Pick the group or community recipients must belong to.');
+  const body = { csv: state.dmCsv, phoneCol: $('#dPhone').value, gateId: $('#dGate').value, template: composers.dm.text.value, media: composers.dm.media };
+  const box = $('#dResult'); box.replaceChildren(el('p', { className: 'muted', textContent: 'Checking…' }));
+  try {
+    const r = await api('/api/dms/plan', { ...body, media: null });
+    const stats = el('div', { className: 'stats' }, stat('Will message', r.count, 'green'), stat(`Not members of ${r.gate}`, r.notMember), stat('Duplicates', r.dup), stat('Bad numbers', r.bad));
+    const prev = r.previews.map((p) => el('div', { className: 'preview' }, el('div', { className: 'to', textContent: 'To ' + p.phone }), p.text || '(attachment only)'));
+    const warn = r.unfilled.length ? el('div', { className: 'warnbox', textContent: `These placeholders don't match a column: ${r.unfilled.join(' ')}` }) : '';
+    const go = r.count ? btn(`Send ${r.count} personal messages`, async () => {
+      const v = await confirmCount('Send personal messages', `Send ${r.count} individual messages (${r.count > 50 ? 'only 50 go out per day by default; the rest wait for later runs' : 'paced 20–45 s apart'}).`, r.count);
+      if (v === null) return;
+      try { await api('/api/dms/run', { ...body, confirm: v }); box.replaceChildren(el('p', { className: 'muted', textContent: 'Started — follow progress at the bottom.' })); }
+      catch (e) { toast(e.message); }
+    }, 'primary') : '';
+    box.replaceChildren(stats, warn, ...prev, el('div', { className: 'row' }, el('span', { className: 'grow' }), go));
+  } catch (e) { box.replaceChildren(); toast(e.message); }
+};
+
+// ---------- export ----------
+$('#xGo').onclick = async () => {
+  $('#xInfo').textContent = 'Working…';
+  try { const r = await api('/api/export/chats', { full: $('#xFull').checked }); download(r.name, r.csv); $('#xInfo').textContent = `${r.count} exported (also saved in output/).`; }
+  catch (e) { $('#xInfo').textContent = ''; toast(e.message); }
+};
+
+// ---------- job panel ----------
+function addLog(evt) {
+  const line = el('div', { className: evt.level || '', textContent: `${new Date(evt.time).toLocaleTimeString()}  ${evt.text}` });
+  const log = $('#log'); const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+  log.append(line); while (log.childElementCount > 500) log.firstChild.remove();
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+function renderJob(j) {
+  state.job = j;
+  const running = j && j.state === 'running';
+  $('#jLabel').textContent = j ? j.label + (running ? (j.paused ? ' (paused)' : '') : ' — finished') : 'No job running';
+  $('#jCount').textContent = j ? `${j.processed}/${j.total || '…'} · ${j.done} done` : '';
+  $('#jBar').style.width = j && j.total ? Math.round((j.processed / j.total) * 100) + '%' : '0';
+  $('#jPause').disabled = !running; $('#jStop').disabled = !running;
+  $('#jPause').textContent = j && j.paused ? 'Resume' : 'Pause';
+  $('#jLog').disabled = !(j && j.state === 'finished' && j.logFile);
+  if (j && j.state === 'finished' && state.lastFinished !== j.startedAt) {
+    state.lastFinished = j.startedAt;
+    refreshUsage();
+    if (state.sel && !$('section[data-pane=manage]').hidden) selectChat(state.sel);
+  }
+}
+$('#jPause').onclick = () => api(state.job && state.job.paused ? '/api/job/resume' : '/api/job/pause', {}).then(renderJob).catch((e) => toast(e.message));
+$('#jStop').onclick = () => api('/api/job/stop', {}).then(renderJob).catch((e) => toast(e.message));
+$('#jLog').onclick = () => { location.href = '/api/job/log?token=' + TOKEN; };
+$('#jToggle').onclick = () => { $('#job').classList.toggle('collapsed'); sizeJob(); };
+function sizeJob() { document.documentElement.style.setProperty('--jobh', $('#job').offsetHeight + 'px'); }
+window.onresize = sizeJob;
+
+// ---------- live events ----------
+function connectEvents() {
+  const es = new EventSource('/api/events?token=' + TOKEN);
+  es.onmessage = (m) => {
+    const evt = JSON.parse(m.data);
+    if (evt.type === 'status') setStatus(evt.state, evt.qr, evt.error);
+    if (evt.type === 'log') addLog(evt);
+    if (evt.type === 'job') renderJob(evt.job);
+  };
+  es.onerror = () => {
+    if (!document.getElementById('status')) { es.close(); return; } // app was quit
+    setStatus('error', null, 'Lost connection to the local server. Is it still running?');
+  };
+}
+connectEvents(); refreshUsage(); sizeJob();
+</script>
+</body>
+</html>

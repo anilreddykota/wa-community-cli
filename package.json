@@ -6,7 +6,8 @@
   "type": "module",
   "bin": { "wa-community": "index.mjs" },
   "scripts": {
-    "start": "node index.mjs"
+    "start": "node index.mjs",
+    "ui": "node server.mjs"
   },
   "engines": { "node": ">=18" },
   "dependencies": {
