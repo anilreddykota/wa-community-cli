@@ -165,13 +165,17 @@ async function memberMenu(wa, chat) {
     }
 
     if (action === 'add') {
-      console.log(col.yellow('  Only add people who know you. People whose privacy settings block group adds will show as not-added — send them your invite link instead.'));
+      console.log(col.yellow('  Adding people is what WhatsApp watches most closely. Up to ' + config.pace.adds.dailyLimit + ' a day, 15–30 s apart.'));
+      console.log(col.yellow('  Only add people who know you and expect it — a few reports can get your number restricted. If unsure, share your invite link instead.'));
       if (chat.kind === 'community') console.log(col.yellow('  Communities: people are added through the Announcements group. Not tested live yet — try one number first.'));
       const plan = planAdd(members, readNumbers(await askFile('File with numbers to add:')));
       console.log(`  Numbers in file: ${plan.wanted}   Already members: ${plan.already}   To add: ${col.green(plan.toAdd.length)}`);
-      if (plan.toAdd.length && (await confirmCount(plan.toAdd.length, `adding ${plan.toAdd.length} people to "${chat.title}"`))) {
-        await runJob({ kind: 'members', label: 'Add', items: plan.toAdd, action: (m) => wa('addMember', chat.id, m.phone), logFile: outFile('add_log', chat.title) });
-      } else if (plan.toAdd.length) console.log('Cancelled.');
+      if (!plan.toAdd.length) continue;
+      const ack = await input({ message: col.red('Type "yes" if everyone on this list knows you and expects to be added:') });
+      if (ack.trim().toLowerCase() !== 'yes') { console.log('Cancelled.'); continue; }
+      if (await confirmCount(plan.toAdd.length, `adding ${plan.toAdd.length} people to "${chat.title}"`)) {
+        await runJob({ kind: 'adds', label: 'Add', items: plan.toAdd, action: (m) => wa('addMember', chat.id, m.phone), logFile: outFile('add_log', chat.title) });
+      } else console.log('Cancelled.');
     }
 
     if (action === 'send') {
@@ -239,23 +243,40 @@ async function broadcastToGroups(wa) {
 
 async function personalMessages(wa) {
   console.log(col.yellow('  Personal messages are the riskiest thing to automate: people who don\'t expect them report them, and reports get numbers banned.'));
-  console.log(col.dim('  To keep this safe, the tool only messages people who are members of a community/group you pick.'));
+  console.log(col.dim(`  Up to ${config.pace.dms.dailyLimit} a day, 20–45 s apart.`));
   const { headers, records } = parseCsv(fs.readFileSync(await askFile('CSV with recipients (needs a header row):'), 'utf8'));
   if (!records.length) return console.log('No rows found.');
   const cols = phoneColumns(headers, records);
   if (!cols.length) return console.log(col.red('No column with phone numbers found.'));
   const phoneCol = cols.length === 1 ? cols[0] : await select({ message: 'Which column has the numbers to message?', choices: cols.map((h) => ({ name: h, value: h })) });
 
-  const gate = await pickChat(await wa('listChats'), 'Only message people who are members of (search):');
-  console.log(col.dim('Loading members…'));
-  const plan = planDms(records, phoneCol, await wa('loadMembers', gate.id));
-  console.log(`  Rows: ${plan.rows}   Will message: ${col.green(plan.recipients.length)}   Not members of "${gate.title}": ${plan.notMember}   Duplicates: ${plan.dup}   Bad numbers: ${plan.bad}`);
+  const who = await select({
+    message: 'Who can receive messages?',
+    choices: [
+      { name: 'Only members of a group or community I choose (safer)', value: 'group' },
+      { name: 'Anyone in my CSV (no group check, highest risk)', value: 'anyone' },
+    ],
+  });
+  let gate = null;
+  if (who === 'anyone') {
+    console.log(col.red('  No group check: messages go to every number in your CSV, including people who may not have your number saved.'));
+    console.log(col.red('  Strangers report unexpected messages far more often. Use this only for people who gave you their number.'));
+    const ok = await input({ message: col.red('Type "I understand" to continue:') });
+    if (ok.trim().toLowerCase() !== 'i understand') return console.log('Cancelled.');
+  } else {
+    gate = await pickChat(await wa('listChats'), 'Only message people who are members of (search):');
+    console.log(col.dim('Loading members…'));
+  }
+  const plan = planDms(records, phoneCol, gate ? await wa('loadMembers', gate.id) : null);
+  console.log(`  Rows: ${plan.rows}   Will message: ${col.green(plan.recipients.length)}${gate ? `   Not members of "${gate.title}": ${plan.notMember}` : ''}   Duplicates: ${plan.dup}   Bad numbers: ${plan.bad}`);
   if (!plan.recipients.length) return;
 
   const { text, media } = await composeMessage({ placeholders: headers });
   for (const r of plan.recipients.slice(0, 3)) preview(r.phone, fillTemplate(text, r.record), media);
   const unfilled = fillTemplate(text, plan.recipients[0].record).match(/\{[^{}]+\}/g) || [];
   if (unfilled.length) console.log(col.yellow(`  Warning: these placeholders didn't match a column: ${unfilled.join(' ')}`));
+  const ack = await input({ message: col.red('Type "yes" if each person will recognise you and expects this message:') });
+  if (ack.trim().toLowerCase() !== 'yes') return console.log('Cancelled.');
   if (!(await confirmCount(plan.recipients.length, `sending personal messages to ${plan.recipients.length} people`))) return console.log('Cancelled.');
   await runJob({ kind: 'dms', label: 'Personal messages', items: plan.recipients, action: (r) => wa('sendMessage', { phone: r.phone }, fillTemplate(text, r.record), media), describe: (r) => r.phone, logFile: outFile('personal_messages_log') });
 }

@@ -228,12 +228,13 @@ async function api(req, url, body) {
 
       checkConfirm(body.confirm, targets.length);
       if (!targets.length) throw httpError(400, 'Nothing to do.');
+      if (action === 'add' && body.ack !== true) throw httpError(400, 'Tick the box confirming these people know you and expect to be added.');
       const w = wa();
       const fn = action === 'add' ? (m) => w('addMember', c.id, m.phone)
         : action === 'promote' || action === 'demote' ? (m) => w('setAdmin', c.id, m.key, action === 'promote')
         : (m) => w('removeMember', c.id, m.key, m.phone, m.name);
       const label = { keep: 'Remove members not on keep list', removeList: 'Remove listed members', promote: 'Make admins', demote: 'Remove admin rights', add: 'Add members' }[action];
-      return startJob({ kind: 'members', label: `${label} — ${c.title}`, items: targets, action: fn, logFile: outFile(`${action}_log`, c.title) });
+      return startJob({ kind: action === 'add' ? 'adds' : 'members', label: `${label} — ${c.title}`, items: targets, action: fn, logFile: outFile(`${action}_log`, c.title) });
     }
 
     // ----- one message to many chats -----
@@ -301,8 +302,10 @@ async function api(req, url, body) {
       const { headers, records } = parseCsv(body.csv || '');
       if (!records.length) throw httpError(400, 'No rows found in the CSV.');
       if (!headers.includes(body.phoneCol)) throw httpError(400, 'Pick the column with phone numbers.');
-      const gate = await chatById(wa(), body.gateId);
-      const members = await wa()('loadMembers', gate.id);
+      const anyone = body.gateId === '__anyone__';
+      if (!anyone && !body.gateId) throw httpError(400, 'Choose who can receive messages: members of a group, or anyone in your CSV.');
+      const gate = anyone ? { title: 'anyone in your CSV' } : await chatById(wa(), body.gateId);
+      const members = anyone ? null : await wa()('loadMembers', gate.id);
       const plan = planDms(records, body.phoneCol, members);
       const template = String(body.template || '');
       const media = body.media ? mediaFromBase64(body.media.base64, body.media.name) : null;
@@ -310,10 +313,12 @@ async function api(req, url, body) {
       if (!run) {
         const previews = plan.recipients.slice(0, 3).map((r) => ({ phone: r.phone, text: fillTemplate(template, r.record) }));
         const unfilled = plan.recipients.length ? (fillTemplate(template, plan.recipients[0].record).match(/\{[^{}]+\}/g) || []) : [];
-        return { headers, gate: gate.title, rows: plan.rows, count: plan.recipients.length, notMember: plan.notMember, dup: plan.dup, bad: plan.bad, previews, unfilled };
+        return { headers, gate: gate.title, anyone, dailyLimit: config.pace.dms.dailyLimit, rows: plan.rows, count: plan.recipients.length, notMember: plan.notMember, dup: plan.dup, bad: plan.bad, previews, unfilled };
       }
       checkConfirm(body.confirm, plan.recipients.length);
       if (!plan.recipients.length) throw httpError(400, 'Nobody to message.');
+      if (body.ack !== true) throw httpError(400, 'Tick the box confirming every person on the list knows you and expects this message.');
+      if (anyone && body.ackAnyone !== true) throw httpError(400, 'Tick the box confirming you understand the extra risk of messaging people outside your groups.');
       const w = wa();
       return startJob({
         kind: 'dms', label: `Personal messages (${plan.recipients.length})`, items: plan.recipients,

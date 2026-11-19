@@ -78,7 +78,7 @@ That's it. Next time, just double-click `start-ui.bat` again. No QR code needed.
 | **Left side** | Search all your groups and communities. Filter to communities, groups, or ones where you're admin. Click one to manage it. |
 | **Manage** | Member list and search. **Export members CSV**. **Bulk member action**: remove everyone not on a keep list, remove listed numbers, or make or remove admins. Paste numbers or load a CSV, click **Preview** to see exactly who is affected, then confirm. **Add members**: paste or load numbers, preview who's new, confirm. **Post a message** to that group, or to a community's Announcements. |
 | **Message many groups** | Pick a **saved list**, or tick groups yourself, then write a message, optionally attach a photo, video or document, and send. Communities post to their Announcements group. Click **Save selection as list** to reuse the same set next time. |
-| **Personal messages** | Load a CSV with a header row and pick the phone column. Pick the community or group the people must belong to. Write the message, using buttons like `{Student ID}` to fill in each row's data. Preview, then send. |
+| **Personal messages** | Load a CSV with a header row and pick the phone column. Choose who can receive messages: **members of a group** (safer), or **anyone in the CSV** (no group check; shows a risk warning and needs an extra tick). Write the message, using buttons like `{Student ID}` to fill in each row's data. Preview, tick the confirmation, then send. |
 | **Export & limits** | Export a list of all your groups. See today's usage. |
 | **Bottom bar** | Live progress, **Pause**, **Stop**, and **Download log** for the running job. |
 | **Top right** | **Log out** (disconnect WhatsApp from this computer) and **Quit** (stop the tool). |
@@ -160,14 +160,15 @@ WhatsApp doesn't allow automated or bulk use of personal accounts. It watches fo
 
 | Kind | Gap between items | Break | Daily limit |
 |---|---|---|---|
-| Member changes (remove/add/admin) | 5–9 s | 90 s every 25 | 200 |
+| Removals and admin changes | 5–9 s | 90 s every 25 | 200 |
+| Adding people | 15–30 s | 5 min every 10 | 80 |
 | Group messages | 10–20 s | 2 min every 20 | 100 |
 | Personal messages | 20–45 s | 5 min every 10 | 50 |
 
 When a limit is reached, the rest waits for the next day. To change the limits, create a file named `config.json` in the folder, for example:
 
 ```json
-{ "countryCode": "91", "pace": { "dms": { "dailyLimit": 30 }, "members": { "dailyLimit": 150 } } }
+{ "countryCode": "91", "pace": { "dms": { "dailyLimit": 30 }, "adds": { "dailyLimit": 50 }, "members": { "dailyLimit": 150 } } }
 ```
 
 **What gets numbers banned:** messaging people who don't expect it, sending the same text to many people, and adding strangers to groups.
@@ -179,7 +180,8 @@ When a limit is reached, the rest waits for the next day. To change the limits, 
 - The owner, admins and members with hidden numbers are never removed.
 - Community removals go through WhatsApp's own confirm box, and the tool checks it names the right number first.
 - Every change and message waits for WhatsApp to confirm it. The run stops on the first error.
-- Personal messages only go to members of a community or group you pick, with duplicates removed.
+- **Adding people** and **personal messages** each need you to tick a box confirming the people know you and expect it. The tool checks this too, so it can't be skipped.
+- Personal messages go only to members of a group you pick, unless you choose "anyone in my CSV". That option needs a second confirmation about the extra risk. Duplicates are always removed.
 - The page only works on your own computer (`localhost`). It's protected by a secret key, so other websites can't control it.
 
 ## Two versions: web page and terminal

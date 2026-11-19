@@ -44,6 +44,7 @@ async function run(theme, port) {
     // 1. Manage: keep-list preview
     await clickText('.chat', 'Class of 2027 · Students');
     await page.waitForFunction(() => document.querySelectorAll('#mRows tr').length > 10);
+    await clickText('#subnav button', 'Clean up');
     const keepList = await page.evaluate(async () => {
       const r = await fetch('/api/members?id=c1', { headers: { 'X-Token': 'demo' } }).then((x) => x.json());
       const nums = r.members.filter((m) => !m.role).slice(0, 1687).map((m) => m.phone);
@@ -59,7 +60,10 @@ async function run(theme, port) {
       const card = document.querySelector(s).closest('.card');
       m.scrollTop += card.getBoundingClientRect().top - m.getBoundingClientRect().top - 12;
     }, sel);
-    await scrollTo('#bAction');
+    await page.evaluate(() => { // show the list drop zone, the review step and the highlighted counts
+      const m = document.querySelector('main');
+      m.scrollTop += document.getElementById('bText').getBoundingClientRect().top - m.getBoundingClientRect().top - 60;
+    });
     await shot('manage.png');
 
     // 2. Message many groups
@@ -84,7 +88,8 @@ async function run(theme, port) {
     await shot('personal.png');
 
     // 4. Confirm, then live progress
-    await clickText('#tabs button', 'Manage');
+    await clickText('#tabs button', 'Groups');
+    await clickText('#subnav button', 'Clean up');
     await clickText('#bResult button', 'Remove');
     await page.waitForSelector('#confirmOverlay.show');
     const n = await page.$eval('#cfNum', (e) => e.textContent);

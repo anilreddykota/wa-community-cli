@@ -118,7 +118,8 @@ function api(method, p, q, body) {
     const rows = lines.slice(1).map((l) => Object.fromEntries(l.split(',').map((v, i) => [headers[i], v.trim()])));
     const fill = (t, r) => t.replace(/\{([^{}]+)\}/g, (a, k) => { const h = headers.find((x) => x.toLowerCase() === k.trim().toLowerCase()); return h ? r[h] : a; });
     if (p.endsWith('/run')) return fakeJob(`Personal messages (${rows.length})`, rows.map((r) => ({ phone: r[body.phoneCol] })), 'sent');
-    return { headers, gate: (chats.find((c) => c.id === body.gateId) || {}).title, rows: rows.length, count: rows.length - 2, notMember: 1, dup: 1, bad: 0,
+    const anyone = body.gateId === '__anyone__';
+    return { headers, gate: anyone ? 'anyone in your CSV' : (chats.find((c) => c.id === body.gateId) || {}).title, anyone, dailyLimit: 50, rows: rows.length, count: rows.length - (anyone ? 1 : 2), notMember: anyone ? 0 : 1, dup: 1, bad: 0,
       previews: rows.slice(0, 3).map((r) => ({ phone: r[body.phoneCol], text: fill(body.template, r) })), unfilled: [] };
   }
   // saved lists (kept in memory for the demo)
@@ -135,7 +136,7 @@ function api(method, p, q, body) {
   if (p === '/api/quit') { setTimeout(() => process.exit(0), 200); return { ok: true }; }
   return null;
 }
-const usage = () => ({ members: { label: 'member changes', used: 42, limit: 200 }, groupMsgs: { label: 'group messages', used: 6, limit: 100 }, dms: { label: 'personal messages', used: 0, limit: 50 } });
+const usage = () => ({ members: { label: 'removals & admin changes', used: 42, limit: 200 }, adds: { label: 'people added', used: 12, limit: 80 }, groupMsgs: { label: 'group messages', used: 6, limit: 100 }, dms: { label: 'personal messages', used: 0, limit: 50 } });
 
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
