@@ -75,11 +75,12 @@ When a limit is reached, the rest waits for tomorrow. To change the limits, crea
 | Export, keep-list compare, CSV parsing, placeholders | ✅ tested |
 | Removing from a **community** | ✅ tested (300+ removals) |
 | Sending text, photo and PDF to a chat | ✅ tested (3 test messages) |
-| Posting to a group or community Announcements | ⚠️ same send code, not yet run on a group; try once first |
-| Removing from a **normal group** | ⚠️ not tested; try one number first |
-| Make or remove admins | ⚠️ not tested; try one number first |
-| Adding people to a group | ⚠️ experimental; try one or two first |
-| Invite links in the export | ⚠️ only filled where WhatsApp already has them cached |
+| Posting a message to a group | ✅ tested |
+| Make admin and remove admin (normal group) | ✅ tested |
+| Removing from a **normal group** | ✅ tested |
+| Adding people to a group | ✅ tested with a saved contact; people whose privacy settings block group adds won't be added (shown as `not-added`) |
+| Make or remove admins in a **community** | ⚠️ uses WhatsApp's community-specific functions, not run live yet; try one number first |
+| Invite links in the export | ⚠️ WhatsApp doesn't expose a safe way to fetch them, so a link appears only after you've opened that group's "Invite via link" screen once |
 
 ## Chrome extension (no terminal needed)
 
