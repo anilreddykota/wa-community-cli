@@ -103,6 +103,8 @@ async function memberMenu(wa, chat) {
   for (;;) {
     console.log(col.dim('Loading members…'));
     const members = await wa('loadMembers', chat.id);
+    // Loading members also loads the group's details, so refresh your role.
+    Object.assign(chat, (await wa('listChats')).find((x) => x.id === chat.id) || {});
     const admins = members.filter((m) => m.role);
     const hidden = members.filter((m) => !m.role && !m.phone);
     console.log(col.bold(`\n${chat.title}`) + col.dim(`  (${chat.kind}, you are ${chat.myRole})`));
@@ -292,6 +294,7 @@ async function main() {
   console.log(col.dim('Waiting for WhatsApp Web to load…'));
   const { browser, page } = await openWhatsApp((state) => {
     if (state === 'qr') console.log(col.yellow('→ On your phone: WhatsApp → Linked devices → Link a device, then scan the QR code in the Chrome window.'));
+    if (state === 'syncing') console.log(col.dim('Syncing your groups (members and admins)… up to a minute.'));
     if (state === 'ready') console.log(col.green('WhatsApp Web is ready.'));
   });
   const wa = waCaller(page);

@@ -52,6 +52,7 @@ function requireReady() {
   if (session.state !== 'ready' || !session.wa) {
     const why = {
       starting: 'WhatsApp is still loading. Wait a few seconds and try again.',
+      syncing: 'WhatsApp is still syncing your groups (members and admins). This takes up to a minute after starting — try again shortly.',
       qr: 'WhatsApp isn\'t linked yet. Scan the QR code on this page with your phone (WhatsApp → Linked devices → Link a device).',
       closed: 'The WhatsApp window is closed. Click "Connect WhatsApp" at the top.',
       error: 'WhatsApp couldn\'t start: ' + (session.error || 'unknown error') + '. Click "Connect WhatsApp" to try again.',
@@ -168,7 +169,9 @@ async function api(req, url, body) {
     case 'GET /api/members': {
       const id = url.searchParams.get('id');
       const members = await wa()('loadMembers', id);
-      return { members: slim(members, 20000), admins: members.filter((m) => m.role).length, hidden: members.filter((m) => !m.role && !m.phone).length };
+      // Loading members also loads the group's details, so your role is now accurate.
+      const chat = (await wa()('listChats')).find((x) => x.id === id) || null;
+      return { members: slim(members, 20000), admins: members.filter((m) => m.role).length, hidden: members.filter((m) => !m.role && !m.phone).length, chat };
     }
 
     case 'POST /api/export/members': {
@@ -195,8 +198,8 @@ async function api(req, url, body) {
     case 'POST /api/members/plan':
     case 'POST /api/members/run': {
       const run = route.endsWith('/run');
+      const members = await wa()('loadMembers', body.chatId); // loads group details first, so the role check below is accurate
       const c = await chatById(wa(), body.chatId);
-      const members = await wa()('loadMembers', c.id);
       const numbers = numbersFromText(body.text || '');
       if (!numbers.size) throw httpError(400, 'No phone numbers found in the list.');
       const action = body.action;

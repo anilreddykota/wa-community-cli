@@ -24,7 +24,7 @@
   header h1 { font-size: 16px; margin: 0; font-weight: 600; }
   .pill { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--panel2); color: var(--muted); }
   .pill.ready { background: var(--chip); color: var(--ok); }
-  .pill.qr, .pill.starting { color: var(--warn); }
+  .pill.qr, .pill.starting, .pill.syncing { color: var(--warn); }
   .pill.error, .pill.closed { color: var(--danger); }
   .usage { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
   .usage span { font-size: 12px; color: var(--muted); background: var(--panel2); padding: 3px 8px; border-radius: 6px; }
@@ -410,7 +410,7 @@ function setStatus(s, qr, error) {
   if (s === 'ready' && prev !== 'ready') state.chats = [];
   const pill = $('#status');
   pill.className = 'pill ' + s;
-  pill.textContent = { starting: 'Starting WhatsApp…', qr: 'Scan QR code', ready: 'Connected', closed: 'WhatsApp window closed', error: 'Error' }[s] || s;
+  pill.textContent = { starting: 'Starting WhatsApp…', syncing: 'Syncing groups…', qr: 'Scan QR code', ready: 'Connected', closed: 'WhatsApp window closed', error: 'Error' }[s] || s;
   if (error) pill.title = error;
   $('#reconnect').hidden = !(s === 'closed' || s === 'error');
   $('#qrOverlay').classList.toggle('show', s === 'qr');
@@ -468,29 +468,37 @@ async function selectChat(c) {
   $('#noChat').hidden = true; $('#chatPane').hidden = false;
   $('#cTitle').textContent = c.title;
   $('#cStats').replaceChildren(el('div', { className: 'stat' }, el('b', { textContent: '…' }), 'Loading members'));
-  $('#mRows').replaceChildren(); $('#bResult').replaceChildren();
-  $('#postCard').hidden = !c.canSend;
-  $('#postTitle').textContent = c.kind === 'community' ? 'Post to Announcements' : 'Post a message';
-  const isAdmin = c.myRole !== 'member';
-  for (const o of $$('#bAction option')) o.disabled = !isAdmin && o.value !== 'keep';
-  if ($('#bAction').selectedOptions[0].disabled) $('#bAction').value = 'keep';
-  // Add members card
-  $('#aResult').replaceChildren();
-  for (const id of ['aText', 'aFile', 'aPreview']) $('#' + id).disabled = !isAdmin;
-  $('#addNote').replaceChildren(!isAdmin
-    ? el('span', { className: 'inline-error', style: 'display:block;margin:0', textContent: `Only admins can add members. You are a member of this ${KIND[c.kind].toLowerCase()}.` })
-    : c.kind === 'community'
-      ? el('span', { textContent: 'People are added to the community through its Announcements group. ⚠ Not tested live for communities yet: try one number first. People whose privacy settings block group adds show as "not-added"; send them your invite link instead.' })
-      : el('span', { textContent: 'Only add people who know you. People whose privacy settings block group adds show as "not-added"; send them your invite link instead.' }));
+  $('#mRows').replaceChildren(); $('#bResult').replaceChildren(); $('#aResult').replaceChildren();
+  applyRole(c);
   try {
     const r = await api('/api/members?id=' + encodeURIComponent(c.id));
     if (state.sel !== c) return;
+    // Loading members also loads the group's details, so the role may now be accurate.
+    if (r.chat && (r.chat.myRole !== c.myRole || r.chat.canSend !== c.canSend)) {
+      Object.assign(c, r.chat);
+      const inList = state.chats.find((x) => x.id === c.id); if (inList) Object.assign(inList, r.chat);
+      applyRole(c); renderChats();
+    }
     state.members = r.members;
     $('#cStats').replaceChildren(
       stat('Members', r.members.length), stat('Admins / owner', r.admins), stat('Hidden numbers', r.hidden),
       stat('You are', c.myRole), stat('Type', KIND[c.kind]));
     renderMembers();
   } catch (e) { toast(e.message); }
+}
+// Show or hide actions depending on whether you're an admin / can post here.
+function applyRole(c) {
+  $('#postCard').hidden = !c.canSend;
+  $('#postTitle').textContent = c.kind === 'community' ? 'Post to Announcements' : 'Post a message';
+  const isAdmin = c.myRole !== 'member';
+  for (const o of $$('#bAction option')) o.disabled = !isAdmin && o.value !== 'keep';
+  if ($('#bAction').selectedOptions[0].disabled) $('#bAction').value = 'keep';
+  for (const id of ['aText', 'aFile', 'aPreview']) $('#' + id).disabled = !isAdmin;
+  $('#addNote').replaceChildren(!isAdmin
+    ? el('span', { className: 'inline-error', style: 'display:block;margin:0', textContent: `Only admins can add members. You are a member of this ${KIND[c.kind].toLowerCase()}.` })
+    : c.kind === 'community'
+      ? el('span', { textContent: 'People are added to the community through its Announcements group. ⚠ Not tested live for communities yet: try one number first. People whose privacy settings block group adds show as "not-added"; send them your invite link instead.' })
+      : el('span', { textContent: 'Only add people who know you. People whose privacy settings block group adds show as "not-added"; send them your invite link instead.' }));
 }
 function stat(label, val, cls = '') { return el('div', { className: 'stat ' + cls }, el('b', { textContent: val }), label); }
 function renderMembers() {
